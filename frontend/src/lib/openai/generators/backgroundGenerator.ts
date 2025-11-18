@@ -1,10 +1,13 @@
-// src/lib/openai/generators/backgroundGenerator.ts
+// ================================
+// src/lib/openai/generators/backgroundGenerator.ts (PATCHED)
+// ================================
 
 
 import { CertificateElement } from "../../../types/certificate";
 import { SIZE_MAP } from "../utils/sizeUtils";
 import {
- detectBackgroundType,
+
+
  detectGradientDirection,
  detectGradientIntensity,
  formatBackgroundPrompt,
@@ -48,14 +51,12 @@ export async function generateBackground(
 
 
  // -------------------------------------------------
- // 2) CLASSIFICATION KEYWORDS
+ // 2) KEYWORDS
  // -------------------------------------------------
-
-
  const patternKeywords = [
-   "pattern", "patterned", "ornamental", "decorative", "motif", "seamless",
-   "geometric pattern", "panel", "blocks", "squares", "geometric blocks",
-   "modern pattern", "certificate background", "premium background",
+   "pattern", "patterned", "decorative", "motif", "seamless",
+   "geometric pattern",
+   "modern pattern", "premium background",
    "abstract pattern", "striped pattern"
  ];
 
@@ -63,7 +64,7 @@ export async function generateBackground(
  const textureKeywords = [
    "texture", "textured", "grain", "grunge", "rough", "paper texture",
    "vintage texture", "linen", "brushed", "matte", "smooth grain",
-   "digital texture", "fabric texture"
+   "digital texture", "fabric texture", "paper", "parchment"
  ];
 
 
@@ -85,32 +86,19 @@ export async function generateBackground(
  const mentionsPattern = patternKeywords.some(k => lower.includes(k));
  const mentionsTexture = textureKeywords.some(k => lower.includes(k));
  const mentionsGradient = gradientKeywords.some(k => lower.includes(k));
- const mentionsPlain =
-   plainKeywords.some(k => lower.includes(k)) ||
-   colorKeywords.some(k => lower.includes(k));
+ const mentionsPlain = plainKeywords.some(k => lower.includes(k)) || colorKeywords.some(k => lower.includes(k));
 
 
- // Extract colors (for MC-3 multi-color logic)
  const extractedColors = extractColors(userPrompt);
  const isMultiColor = extractedColors.length >= 2;
-
-
- // Multi-color + NO “gradient” → DALL·E (Option C + MC-3)
  const isMultiColorNonGradient = isMultiColor && !mentionsGradient;
-
-
- // Handle textured gradients
  const mentionsTexturedGradient = mentionsGradient && (mentionsPattern || mentionsTexture);
 
 
  // -------------------------------------------------
- // 3) GRADIENT (PURE) → CSS
+ // 3) PURE GRADIENT → CSS ONLY
  // -------------------------------------------------
  if (mentionsGradient && !mentionsTexturedGradient && !isMultiColorNonGradient) {
-   const backgroundType = detectBackgroundType(userPrompt);
-   void backgroundType;
-
-
    const baseColors = extractedColors.map(c => adjustBaseColor(c, userPrompt));
    const direction = detectGradientDirection(userPrompt);
    const intensity = detectGradientIntensity(userPrompt);
@@ -120,10 +108,7 @@ export async function generateBackground(
 
 
    if (gradientColors.length === 1) {
-     gradientColors = [
-       adjustColor(gradientColors[0], -0.1),
-       adjustColor(gradientColors[0], 0.3),
-     ];
+     gradientColors = [adjustColor(gradientColors[0], -0.1), adjustColor(gradientColors[0], 0.3)];
    } else if (gradientColors.length > 1) {
      gradientColors = [
        adjustColor(gradientColors[0], intensity / 2),
@@ -156,14 +141,12 @@ export async function generateBackground(
 
 
  // -------------------------------------------------
- // 4) MULTI-COLOR (NO “gradient”) → FORCE DALLE
+ // 4) MULTI-COLOR (NO GRADIENT) → FORCE DALLE
  // -------------------------------------------------
  if (isMultiColorNonGradient) {
    try {
-     const augmentedPrompt = `${userPrompt}. Background style: textured or patterned background.`;
-
-
-     const backgroundPrompt = formatBackgroundPrompt(augmentedPrompt, canvasSize);
+     const augmentedPrompt = `${userPrompt}. Background style: textured background.`;
+     const backgroundPrompt = formatBackgroundPrompt(augmentedPrompt, canvasSize, "textured");
      const imageSize = determineImageSize(canvasSize.width, canvasSize.height);
      const imageUrl = await generateImageWithDALLE(backgroundPrompt, imageSize);
 
@@ -200,13 +183,9 @@ export async function generateBackground(
 
 
  // -------------------------------------------------
- // 5) PLAIN (single color, no pattern/texture)
+ // 5) PLAIN COLOR
  // -------------------------------------------------
  if (mentionsPlain && !mentionsTexture && !mentionsPattern) {
-   const backgroundType = detectBackgroundType(userPrompt);
-   void backgroundType;
-
-
    const baseColors = extractedColors.map(c => adjustBaseColor(c, userPrompt));
 
 
@@ -228,14 +207,8 @@ export async function generateBackground(
 
 
  // -------------------------------------------------
- // 6) DEFAULT TO DALLE (texture/pattern or ambiguous)
+ // 6) DEFAULT → DALLE (TEXTURE VS PATTERN)
  // -------------------------------------------------
-
-
- const detected = detectBackgroundType(userPrompt);
- void detected;
-
-
  let dalleMode: "patterned" | "textured" = "textured";
  if (mentionsPattern) dalleMode = "patterned";
  if (mentionsTexture) dalleMode = "textured";
@@ -246,7 +219,7 @@ export async function generateBackground(
 
  try {
    const augmentedPrompt = `${userPrompt}. Background style: ${dalleMode} background.`;
-   const backgroundPrompt = formatBackgroundPrompt(augmentedPrompt, canvasSize);
+   const backgroundPrompt = formatBackgroundPrompt(augmentedPrompt, canvasSize, dalleMode);
    const imageSize = determineImageSize(canvasSize.width, canvasSize.height);
    const imageUrl = await generateImageWithDALLE(backgroundPrompt, imageSize);
 
@@ -262,8 +235,6 @@ export async function generateBackground(
      imageUrl,
      opacity: 1,
    });
-
-
  } catch (error) {
    elements.push({
      id: `background-${Date.now()}`,
@@ -275,6 +246,7 @@ export async function generateBackground(
      zIndex: 1,
      backgroundColor: "#ffffff",
      opacity: 1,
+    
    });
  }
 

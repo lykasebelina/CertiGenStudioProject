@@ -1,7 +1,10 @@
+
+// ================================
+// src/lib/openai/utils/backgroundPromptUtils.ts (PATCHED)
+// ================================
 import type { CertificateSize } from "./sizeUtils";
 
 
-/** Detects background type from prompt */
 export function detectBackgroundType(prompt: string): "plain" | "textured" | "gradient" {
  const lower = prompt.toLowerCase();
 
@@ -10,32 +13,26 @@ export function detectBackgroundType(prompt: string): "plain" | "textured" | "gr
 
 
  const textureHints = [
-   "texture", "paper", "grain", "fabric", "canvas", "pattern",
-   "linen", "rough", "material", "vintage", "old", "aged",
-   "fibers", "weave", "cotton", "texture background", "parchment", "texture bg",
+   "texture", "paper", "grain", "fabric", "canvas", "linen", "rough", "parchment",
  ];
 
 
  const plainHints = [
-   "plain", "solid", "flat", "simple", "minimal", "no texture",
-   "clean", "single color", "monotone",
+   "plain", "solid", "flat", "simple", "minimal", "no texture", "clean", "monotone",
  ];
 
 
- // ✅ If user says anything like “pastel”, “peach”, “cream”, “navy”, etc.
- // and doesn’t mention texture — treat it as plain color background
  const colorHint = /\b(pastel|cream|navy|blue|peach|gold|white|black|gray|red|green|beige|ivory)\b/i.test(lower);
 
 
- if (textureHints.some((w) => lower.includes(w))) return "textured";
- if (plainHints.some((w) => lower.includes(w)) || colorHint) return "plain";
-  return "plain"; // ✅ safe default (was "textured" before)
+ if (textureHints.some(w => lower.includes(w))) return "textured";
+ if (plainHints.some(w => lower.includes(w)) || colorHint) return "plain";
+
+
+ return "plain";
 }
 
 
-
-
-/** Detects gradient direction keywords */
 export function detectGradientDirection(prompt: string): string {
  const lower = prompt.toLowerCase();
  if (lower.includes("vertical")) return "to bottom";
@@ -50,7 +47,6 @@ export function detectGradientDirection(prompt: string): string {
 }
 
 
-/** Detects intensity level from descriptive words */
 export function detectGradientIntensity(prompt: string): number {
  const lower = prompt.toLowerCase();
  if (lower.includes("subtle") || lower.includes("soft")) return 0.15;
@@ -60,11 +56,36 @@ export function detectGradientIntensity(prompt: string): number {
 }
 
 
-/** Cleans and formats the prompt for texture generation (DALL·E) */
-export function formatBackgroundPrompt(userPrompt: string, canvasSize: CertificateSize): string {
+/** MODE-AWARE PROMPT GENERATOR */
+export function formatBackgroundPrompt(
+ userPrompt: string,
+ canvasSize: CertificateSize,
+ mode: "patterned" | "textured"
+): string {
  const safePrompt = userPrompt
    .replace(/certificate|border|frame|award|design/gi, "")
    .trim();
+
+
+ if (mode === "textured") {
+   return `
+A high-quality softly textured background in ${safePrompt} style.
+Design characteristics:
+- Subtle natural texture (paper grain, linen, matte, soft fibers)
+- No geometric patterns
+- No repeated shapes
+- No ornaments or motifs
+- No borders or frames
+- No logos, text, or numbers
+Visual style:
+- Clean, elegant, premium
+- Smooth, subtle, softly lit
+Negative prompt:
+- geometric patterns, tiles, squares, rectangles
+- ornaments, motifs
+Canvas size: ${canvasSize.width}x${canvasSize.height}px
+   `;
+ }
 
 
  return `
@@ -72,27 +93,17 @@ A high-quality digital certificate background in ${safePrompt} style.
 Design characteristics:
 - Modern geometric layout with subtle rectangular or square panel sections
 - Soft digital texture (fabric, linen, brushed, matte, or smooth grain)
-- Balanced professional color palette (navy, royal blue, pastel, cream, etc.)
-- Optional metallic gold accent lines or streaks
-- Even studio lighting (no hard shadows)
-- No borders or frames
-- No text, words, or letters anywhere
-- No realistic paper folds or wrinkles
-- No highly detailed ornaments
-
-
+- Balanced professional color palette (navy, royal blue, pastel, cream)
+- Optional metallic gold accent lines
+- Even studio lighting
+- No borders, text, letters, folds, or wrinkles
 Visual style:
-- Clean, elegant, premium certificate background
-- Minimal but modern and decorative
+- Clean, elegant, premium
+- Minimal but modern
 - Fully abstract, pattern-based design
-
-
 Negative prompt:
-- photo of real paper, crumpled paper
-- shadows, corners, edges
-- logos, symbols, letters, numbers
-
-
+- photo of real paper
+- shadows, folds, corners, edges
 Canvas size: ${canvasSize.width}x${canvasSize.height}px
  `;
 }
