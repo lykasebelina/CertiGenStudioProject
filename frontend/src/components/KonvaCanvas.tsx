@@ -26,6 +26,13 @@ export default function KonvaCanvas({
   onElementSelect,
   onElementUpdate,
 }: KonvaCanvasProps) {
+  console.log("🖼️ KonvaCanvas rendering with:", {
+    width,
+    height,
+    elementCount: elements.length,
+    elements: elements
+  });
+
   const [images, setImages] = useState<ImageElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -114,6 +121,10 @@ export default function KonvaCanvas({
     });
   };
 
+
+
+
+  
   const sortedElements = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   const textElements = sortedElements.filter((el) => el.type === "text" || el.type === "signature");
 

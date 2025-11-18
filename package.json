@@ -5,8 +5,12 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "fabric": "^6.9.0",
+    "html-to-image": "^1.11.13",
+    "jszip": "^3.10.1",
     "konva": "^10.0.8",
+    "mammoth": "^1.11.0",
     "openai": "^6.9.0",
+    "pptx-text-parser": "^1.1.1",
     "react-konva": "^19.2.0"
   },
   "devDependencies": {

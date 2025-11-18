@@ -38,7 +38,7 @@ export interface CertificateElement {
   italic?: boolean;
   underline?: boolean; // ✨ NEW
   align?: "left" | "center" | "right";
-  textAlign?: "left" | "center" | "right";
+textAlign?: string;
   fontWeight?: string;
   letterSpacing?: number; // ✨ NEW
   lineHeight?: number; // ✨ NEW
