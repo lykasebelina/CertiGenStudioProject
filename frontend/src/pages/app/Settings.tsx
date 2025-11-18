@@ -119,53 +119,70 @@ export default function Settings() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateProfileForm()) return;
+const handleProfileSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateProfileForm()) return;
 
-    setIsLoading(true);
-    setMessage(null);
+  setIsLoading(true);
+  setMessage(null);
 
-    try {
-      const { data: existingProfile } = await supabase
+  try {
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user!.id)
+      .maybeSingle();
+
+    // 1️⃣ Update or insert into profiles table
+    if (existingProfile) {
+      const { error } = await supabase
         .from("profiles")
-        .select("id")
-        .eq("id", user!.id)
-        .maybeSingle();
+        .update({
+          first_name: profileData.first_name.trim(),
+          last_name: profileData.last_name.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user!.id);
 
-      if (existingProfile) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            first_name: profileData.first_name.trim(),
-            last_name: profileData.last_name.trim(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user!.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("profiles")
+        .insert({
+          id: user!.id,
+          email: user!.email!,
+          first_name: profileData.first_name.trim(),
+          last_name: profileData.last_name.trim(),
+        });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .insert({
-            id: user!.id,
-            email: user!.email!,
-            first_name: profileData.first_name.trim(),
-            last_name: profileData.last_name.trim(),
-          });
-
-        if (error) throw error;
-      }
-
-      setMessage({ type: "success", text: "Profile updated successfully!" });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      setMessage({ type: "error", text: error.message || "Failed to update profile" });
-    } finally {
-      setIsLoading(false);
+      if (error) throw error;
     }
-  };
+
+    // 2️⃣ ALSO UPDATE AUTH USER METADATA (THIS FIXES DISPLAY NAME)
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: {
+        first_name: profileData.first_name.trim(),
+        last_name: profileData.last_name.trim(),
+        full_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`,
+        display_name: `${profileData.first_name.trim()} ${profileData.last_name.trim()}`
+      }
+    });
+
+    if (metaError) throw metaError;
+
+    // 3️⃣ Refresh user session so UI updates
+    await supabase.auth.refreshSession();
+    
+    setMessage({ type: "success", text: "Profile updated successfully!" });
+    setTimeout(() => setMessage(null), 3000);
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    setMessage({ type: "error", text: error.message || "Failed to update profile" });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

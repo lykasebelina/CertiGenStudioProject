@@ -7,6 +7,7 @@ import { useCertificate } from "../../context/CertificateContext";
 import { generateCertificateElements } from "../../lib/openai/openai";
 import { CertificateElement } from "../../types/certificate";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 console.log("Plain background detected — using solid color fill instead of AI image");
 
@@ -23,12 +24,16 @@ function AIGenerate() {
   const navigate = useNavigate();
   const { createCertificateFromPreview, setCurrentCertificate } = useCertificate();
 
+  const { user } = useAuth();
+  const firstName = user?.user_metadata?.first_name || "User";
+
   const [prompt, setPrompt] = useState("");
   const [showSizeMenu, setShowSizeMenu] = useState(false);
   const [selectedSize, setSelectedSize] = useState<CertificateSize>("a4-landscape");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [generatedElements, setGeneratedElements] = useState<CertificateElement[]>([]);
+  
 
   const sizes = [
     { id: "a4-portrait" as CertificateSize, label: "A4 (Portrait)" },
@@ -77,9 +82,12 @@ function AIGenerate() {
 
   if (showPreview) {
     return (
+
+      
       <CertificatePreview
         size={selectedSize}
         prompt={prompt}
+        onPromptChange={setPrompt}  // ← FIX
         onBack={() => setShowPreview(false)}
         onUseTemplate={handleUseTemplate}
         onGenerate={handleGenerate}
@@ -92,13 +100,11 @@ function AIGenerate() {
     <div className="h-screen flex flex-col items-center justify-center bg-slate-900 p-10">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-400 mb-1">AI Certificate Generator</h1>
-          <p className="text-slate-400 text-base">Describe your design and AI will create it</p>
+          <h1 className="text-4xl font-bold text-blue-400 mb-1"> Hello, {firstName}</h1>
+          <p className="text-slate-400 text-center mb-6 text-xl">Let's create beautiful certificates today!</p>
         </div>
 
-        <p className="text-slate-400 text-center mb-6 text-sm">
-          Describe your certificate design and we'll generate beautiful, layered artwork using AI.
-        </p>
+      {/* <p className="text-slate-400 text-base"> Describe your design and AI will create it  Describe your certificate design and we'll generate beautiful, layered artwork using AI.   </p> */}
 
         <div className="relative mb-5 flex justify-center">
           <div className="bg-slate-800 rounded-xl p-1.5 border border-slate-700 w-full max-w-3xl">

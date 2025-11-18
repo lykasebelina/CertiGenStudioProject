@@ -1,10 +1,18 @@
 {
+  "type": "module",
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "fabric": "^6.9.0",
     "konva": "^10.0.8",
+    "openai": "^6.9.0",
     "react-konva": "^19.2.0"
   },
   "devDependencies": {
-    "@types/fabric": "^5.3.10"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/fabric": "^5.3.10",
+    "@types/node": "^24.10.1"
   }
 }

@@ -19,8 +19,8 @@ const SIZE_MAP: Record<
 > = {
   "a4-portrait": { width: 8.27, height: 11.69 },
   "a4-landscape": { width: 11.69, height: 8.27 },
-  "legal-portrait": { width: 8.5, height: 14 },
-  "legal-landscape": { width: 14, height: 8.5 },
+  "legal-portrait": { width: 8.5, height: 13 },
+  "legal-landscape": { width: 13, height: 8.5 },
   "letter-portrait": { width: 8.5, height: 11 },
   "letter-landscape": { width: 11, height: 8.5 },
 };

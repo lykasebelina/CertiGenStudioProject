@@ -6,7 +6,7 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-/** Determines DALL·E size based on aspect ratio */
+/** Determine DALL·E size based on aspect ratio */
 export function determineImageSize(
   width: number,
   height: number
@@ -17,7 +17,7 @@ export function determineImageSize(
   return "1024x1024";
 }
 
-/** Calls DALL·E to generate an image from a formatted prompt */
+/** Calls DALL·E to generate an image from a prompt. Returns image URL string. */
 export async function generateImageWithDALLE(
   prompt: string,
   size: "1024x1024" | "1792x1024" | "1024x1792" = "1024x1024"
@@ -28,12 +28,10 @@ export async function generateImageWithDALLE(
       prompt,
       n: 1,
       size,
-      quality: "standard",
-      style: "natural",
     });
     return response?.data?.[0]?.url ?? "";
   } catch (error) {
-    console.error("❌ Error generating image:", error);
+    console.error("❌ Error generating DALL·E image:", error);
     throw error;
   }
 }

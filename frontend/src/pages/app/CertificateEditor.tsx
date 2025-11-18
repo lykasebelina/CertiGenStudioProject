@@ -46,7 +46,7 @@ const CertificateEditor: React.FC = () => {
     }) => {
       if (!selectedElement || !currentCertificate) return;
 
-      handleElementUpdate(selectedElement, style);
+      handleElementUpdate(selectedElement, style); // CONNECTED TO CERTIFICATE.TS TEXT ALIGNMENT
     },
     [selectedElement, currentCertificate, handleElementUpdate]
   );

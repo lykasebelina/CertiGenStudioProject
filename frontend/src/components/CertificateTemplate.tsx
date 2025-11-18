@@ -1,5 +1,7 @@
-// CertificateTemplate.tsx – Element Renderer
+// CertificateTemplate.tsx – Element Renderer (updated)
 import { CertificateElement } from "../types/certificate";
+
+//const showDebugFrames = true; // ← set to false to hide the outlines
 
 interface CertificateTemplateProps {
   elements?: CertificateElement[];
@@ -29,13 +31,21 @@ export default function CertificateTemplate({
     }
   };
 
+  const clampTextForRender = (content?: string, maxChars?: number) => {
+    const c = content ?? "";
+    if (!maxChars || maxChars <= 0) return c;
+    if (c.length <= maxChars) return c;
+    if (maxChars === 1) return c.slice(0, 1);
+    return c.slice(0, maxChars - 1) + "…";
+  };
+
   const renderElement = (element: CertificateElement) => {
     const baseStyle: React.CSSProperties = {
       position: "absolute",
       left: `${element.x}px`,
       top: `${element.y}px`,
-      width: element.width ? `${element.width}px` : "auto",
-      height: element.height ? `${element.height}px` : "auto",
+      width: element.textFrameWidth ? `${element.textFrameWidth}px` : element.width ? `${element.width}px` : "auto",
+      height: element.textFrameHeight ? `${element.textFrameHeight}px` : element.height ? `${element.height}px` : "auto",
       zIndex: element.zIndex ?? 1,
       opacity: element.opacity ?? 1,
       cursor: "move",
@@ -57,11 +67,11 @@ export default function CertificateTemplate({
         element.imageUrl?.startsWith("linear-gradient") ||
         element.imageUrl?.startsWith("radial-gradient")
       ) {
-        backgroundStyle.background = element.imageUrl;
+        (backgroundStyle as any).background = element.imageUrl;
       } else if (element.imageUrl) {
-        backgroundStyle.backgroundImage = `url(${element.imageUrl})`;
-        backgroundStyle.backgroundSize = "cover";
-        backgroundStyle.backgroundPosition = "center";
+        (backgroundStyle as any).backgroundImage = `url(${element.imageUrl})`;
+        (backgroundStyle as any).backgroundSize = "cover";
+        (backgroundStyle as any).backgroundPosition = "center";
       } else if (element.backgroundColor) {
         backgroundStyle.backgroundColor = element.backgroundColor;
       }
@@ -86,21 +96,60 @@ export default function CertificateTemplate({
       };
 
       if (element.imageUrl) {
-        // Ornate (DALL·E) border image
         borderStyle.backgroundImage = `url(${element.imageUrl})`;
         borderStyle.backgroundSize = "cover";
         borderStyle.backgroundPosition = "center";
       } else if (element.content) {
-        // Simple CSS border
-        borderStyle.border = element.content; // e.g. "4px solid #d4af37"
+        borderStyle.border = element.content;
         borderStyle.boxSizing = "border-box";
       }
 
       return <div key={element.id} style={borderStyle} />;
     }
 
-    // 🖋️ TEXT / SIGNATURE
-    if (element.type === "text" || element.type === "signature") {
+
+
+// 🟪 CORNER FRAME (rotated mini-panels)
+if (element.type === "cornerFrame") {
+  const style: React.CSSProperties = {
+    ...baseStyle,
+    transform: `rotate(${element.rotate ?? 45}deg)`,
+    transformOrigin: "center",
+    backgroundColor: element.backgroundColor,
+    backgroundImage: element.imageUrl ? `url(${element.imageUrl})` : undefined,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    borderRadius: 0,
+    pointerEvents: "auto",
+  };
+
+  return (
+    <div
+      key={element.id}
+      draggable
+      onDragStart={(e) => handleDragStart(e, element.id)}
+      onDrag={(e) => handleDrag(e, element)}
+      onClick={() => onElementSelect?.(element.id)}
+      style={style}
+    />
+  );
+}
+
+
+
+    // ⬜ INNER FRAME (white rectangle)
+    if (element.type === "innerFrame") {
+      const innerFrameStyle: React.CSSProperties = {
+        ...baseStyle,
+        backgroundColor: element.backgroundColor || "#ffffff",
+        border: element.borderWidth
+          ? `${element.borderWidth}px ${element.borderStyle ?? "solid"} ${element.borderColor ?? "#000"}`
+          : undefined,
+        boxSizing: "border-box",
+        pointerEvents: "auto",
+        cursor: "pointer",
+      };
+
       return (
         <div
           key={element.id}
@@ -108,20 +157,57 @@ export default function CertificateTemplate({
           onDragStart={(e) => handleDragStart(e, element.id)}
           onDrag={(e) => handleDrag(e, element)}
           onClick={() => onElementSelect?.(element.id)}
-          style={{
-            ...baseStyle,
-            fontSize: element.fontSize ? `${element.fontSize}px` : "14px",
-            fontWeight: element.fontWeight ?? "normal",
-            textAlign: (element.textAlign as "left" | "center" | "right") ?? "center",
-            color: element.color ?? "#000000",
-            whiteSpace: "pre-line",
-            lineHeight: element.type === "signature" ? "1.4" : "1.6",
-          }}
-        >
-          {element.content}
-        </div>
+          style={innerFrameStyle}
+        />
       );
     }
+
+    // 🖋️ TEXT / SIGNATURE STYLE RENDER
+    if (element.type === "text" || element.type === "signature") {
+      const textStyle: React.CSSProperties = {
+        ...baseStyle,
+        fontFamily: element.fontFamily ?? "Arial",
+        ...(element.fontFamily ? { fontFamily: element.fontFamily } : {}),
+        fontSize: element.fontSize ? `${element.fontSize}px` : "14px",
+        fontWeight: element.bold ? "bold" : element.fontWeight ?? "normal",
+        fontStyle: element.italic ? "italic" : "normal",
+        textDecoration: element.underline ? "underline" : "none",
+        textAlign: (element.textAlign as "left" | "center" | "right") ?? element.align ?? "center",
+        letterSpacing: element.letterSpacing ? `${element.letterSpacing}px` : undefined,
+        textTransform: element.textTransform ?? "none",
+        color: element.color ?? "#000000",
+        whiteSpace: "pre-line",
+        lineHeight: element.type === "signature" ? "1.4" : "1.6",
+        width: element.textFrameWidth ? `${element.textFrameWidth}px` : element.width ? `${element.width}px` : "auto",
+        height: element.textFrameHeight ? `${element.textFrameHeight}px` : element.height ? `${element.height}px` : "auto",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        pointerEvents: "auto",
+
+
+  //FRAME OUTLINE SHOW
+
+//outline: showDebugFrames ? "1px dashed red" : "none",
+//backgroundColor: showDebugFrames ? "rgba(255,0,0,0.05)" : "transparent",
+
+      };
+
+      // Defensive clamp in renderer too
+      const displayedContent = clampTextForRender(element.content, element.maxChars);
+
+      return (
+        <div
+          key={element.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, element.id)}
+          onDrag={(e) => handleDrag(e, element)}
+          onClick={() => onElementSelect?.(element.id)}
+          style={textStyle}
+        >
+          {displayedContent}
+        </div>
+      );
+    } // --- END OF 🖋️ TEXT / SIGNATURE
 
     return null;
   };

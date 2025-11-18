@@ -1,7 +1,5 @@
-//CertificatePreview.tsx
+import { useState, useRef, useEffect } from "react";
 
-
-import { useState, useRef } from "react";
 import { Share2, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
 import CertificateLayout from "../layouts/CertificateLayout";
 import CertificateTemplate from "./CertificateTemplate";
@@ -34,14 +32,21 @@ function CertificatePreview({
   generatedElements,
 }: CertificatePreviewProps) {
   const [localPrompt, setLocalPrompt] = useState(prompt || "");
+
+// Only sync on first render
+useEffect(() => {
+  setLocalPrompt(prompt);
+}, [prompt]);
+
   const [isHovered, setIsHovered] = useState(false);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [zoom, setZoom] = useState(75);
   const layoutRef = useRef<HTMLDivElement>(null);
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalPrompt(e.target.value);
-    onPromptChange?.(e.target.value);
+    const value = e.target.value;
+    setLocalPrompt(value);
+    onPromptChange?.(value);
   };
 
   const handleElementClick = (name: string) => {
