@@ -229,7 +229,7 @@ const handleEdit = async (template: Template) => {
           {
             id: `el_empty_pptx_${crypto.randomUUID()}`,
             type: "text",
-            x: 800,
+            x: 562,
             y: 300,
             width: 800,
             height: 40,
@@ -274,9 +274,9 @@ const handleEdit = async (template: Template) => {
           const el: CertificateElement = {
             id: `el_pptx_${crypto.randomUUID()}`,
             type: "text",
-            x: 800,
+            x: 562,
             y: yPos,
-            width: 1200,
+            width: 1000,
             height: fontSize * 2,
             zIndex: index + 1,
             content: text,
@@ -299,7 +299,7 @@ const handleEdit = async (template: Template) => {
             {
               id: `el_pptx_notext_${crypto.randomUUID()}`,
               type: "text",
-              x: 800,
+              x: 562,
               y: 300,
               width: 800,
               height: 40,
