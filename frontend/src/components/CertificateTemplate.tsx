@@ -1,4 +1,4 @@
-// CertificateTemplate.tsx – Element Renderer (updated)
+// CertificateTemplate.tsx – Element Renderer 
 import { CertificateElement } from "../types/certificate";
 
 //const showDebugFrames = true; // ← set to false to hide the outlines

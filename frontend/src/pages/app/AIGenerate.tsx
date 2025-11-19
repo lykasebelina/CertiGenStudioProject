@@ -1,4 +1,4 @@
-//AIGenerate.tsx
+// src/pages/app/AIGenerator.ts
 
 import { useState } from "react";
 import { Lightbulb, Palette, Plus, Layout, Sparkles } from "lucide-react";

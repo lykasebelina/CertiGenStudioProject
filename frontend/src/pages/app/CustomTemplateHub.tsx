@@ -6,8 +6,35 @@ import mammoth from "mammoth";
 import * as htmlToImage from "html-to-image";
 import { useNavigate } from "react-router-dom";
 import { useCertificate } from "../../context/CertificateContext";
-import { CertificateElement } from "../../types/certificate";
+import { CertificateElement, CertificateSize } from "../../types/certificate";
 import JSZip from 'jszip';
+
+const SIZE_DIMENSIONS: Record<CertificateSize, { width: number; height: number }> = {
+  "a4-portrait": { width: 794, height: 1123 },
+  "a4-landscape": { width: 1123, height: 794 },
+  "legal-portrait": { width: 816, height: 1344 },
+  "legal-landscape": { width: 1344, height: 816 },
+  "letter-portrait": { width: 816, height: 1056 },
+  "letter-landscape": { width: 1056, height: 816 },
+};
+
+const detectPaperFormat = (widthPx: number, heightPx: number): CertificateSize => {
+  const tolerance = 50;
+
+  for (const [formatName, dimensions] of Object.entries(SIZE_DIMENSIONS)) {
+    const widthMatch = Math.abs(widthPx - dimensions.width) <= tolerance;
+    const heightMatch = Math.abs(heightPx - dimensions.height) <= tolerance;
+
+    if (widthMatch && heightMatch) {
+      console.log(`📐 Detected format: ${formatName} (${widthPx}x${heightPx})`);
+      return formatName as CertificateSize;
+    }
+  }
+
+  const isLandscape = widthPx > heightPx;
+  console.log(`⚠️ No exact match found for ${widthPx}x${heightPx}, defaulting to a4-${isLandscape ? 'landscape' : 'portrait'}`);
+  return isLandscape ? "a4-landscape" : "a4-portrait";
+};
 
 export default function CustomTemplateHub() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -191,92 +218,91 @@ export default function CustomTemplateHub() {
     }
   };
 
-
-
-const handleEdit = async (template: Template) => {
-  try {
-    if (!template.file_url) {
-      alert("Template file URL is missing.");
-      return;
-    }
-
-    let elements: CertificateElement[] = [];
-
-    // --- DOCX parsing ---
-    if (template.file_url.endsWith(".docx")) {
-      // ... (keep your existing DOCX parsing code)
-    } 
-    // --- PPTX parsing ---
-    else if (template.file_url.endsWith(".pptx")) {
-      const response = await fetch(template.file_url);
-      if (!response.ok) {
-        alert("Failed to fetch the PPTX template file.");
+  const handleEdit = async (template: Template) => {
+    try {
+      if (!template.file_url) {
+        alert("Template file URL is missing.");
         return;
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      
-      // PPTX files store slides in ppt/slides/slide*.xml
-      const slideFiles = Object.keys(zip.files).filter(name => 
-        name.match(/ppt\/slides\/slide\d+\.xml$/)
-      );
-      
-      console.log("📊 Found slides:", slideFiles);
+      let elements: CertificateElement[] = [];
+      let detectedFormat: CertificateSize = "a4-landscape";
+      let canvasWidth = 1123;
+      let canvasHeight = 794;
 
-      if (slideFiles.length === 0) {
-        elements = [
-          {
-            id: `el_empty_pptx_${crypto.randomUUID()}`,
-            type: "text",
-            x: 562,
-            y: 300,
-            width: 800,
-            height: 40,
-            zIndex: 1,
-            content: "Empty PPTX - No slides found",
-            fontSize: 24,
-            fontFamily: "Arial",
-            color: "#000000",
-            fontWeight: "normal",
-            textAlign: "center",
-            opacity: 1,
-          },
-        ];
-      } else {
-        // Parse first slide only
-        const firstSlide = slideFiles[0];
-        const slideXml = await zip.files[firstSlide].async("string");
-        
-        // Parse XML
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(slideXml, "text/xml");
-        
-        // Extract text from all text elements (a:t tags)
-        const textNodes = xmlDoc.querySelectorAll("a\\:t, t");
-        
-        console.log("📝 Text nodes found:", textNodes.length);
-        
+      if (template.file_url.endsWith(".docx")) {
+        const response = await fetch(template.file_url);
+        if (!response.ok) {
+          alert("Failed to fetch the DOCX template file.");
+          return;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+
+        try {
+          const zip = await JSZip.loadAsync(arrayBuffer);
+
+          const documentXml = await zip.files["word/document.xml"].async("string");
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(documentXml, "text/xml");
+
+          const sectPrElements = xmlDoc.getElementsByTagName("w:sectPr");
+          if (sectPrElements.length > 0) {
+            const sectPr = sectPrElements[0];
+            const pgSzElements = sectPr.getElementsByTagName("w:pgSz");
+            if (pgSzElements.length > 0) {
+              const pgSz = pgSzElements[0];
+              const wTwips = parseInt(pgSz.getAttribute("w:w") || "0");
+              const hTwips = parseInt(pgSz.getAttribute("w:h") || "0");
+
+              if (wTwips > 0 && hTwips > 0) {
+                const widthPx = Math.round(wTwips / 20 * 96 / 72);
+                const heightPx = Math.round(hTwips / 20 * 96 / 72);
+
+                console.log(`📏 DOCX page dimensions: ${widthPx}x${heightPx} px (from ${wTwips}x${hTwips} twips)`);
+
+                detectedFormat = detectPaperFormat(widthPx, heightPx);
+                canvasWidth = SIZE_DIMENSIONS[detectedFormat].width;
+                canvasHeight = SIZE_DIMENSIONS[detectedFormat].height;
+              } else {
+                console.warn(`⚠️ Invalid DOCX dimensions: ${wTwips}x${hTwips} twips, using default`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Could not extract page dimensions from DOCX, using default A4 landscape:", err);
+        }
+
+        const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
+
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = html;
+        const paragraphs = tempDiv.querySelectorAll("p, h1, h2, h3, h4, h5, h6");
+
+        console.log("📝 Paragraphs found:", paragraphs.length);
+
         let yPos = 100;
         const parsedElements: CertificateElement[] = [];
-        
-        textNodes.forEach((node, index) => {
-          const text = node.textContent?.trim() || "";
-          
+        const elementWidth = Math.min(canvasWidth * 0.8, 900);
+        const leftMargin = (canvasWidth - elementWidth) / 2;
+
+        paragraphs.forEach((para, index) => {
+          const text = para.textContent?.trim() || "";
+
           if (!text) return;
-          
+
           console.log(`Text ${index}:`, text);
-          
-          // Detect if it's likely a title (heuristic: first few elements or larger text)
-          const isTitle = index === 0;
+
+          const tagName = para.tagName.toLowerCase();
+          const isTitle = tagName.startsWith("h");
           const fontSize = isTitle ? 32 : 18;
-          
+
           const el: CertificateElement = {
-            id: `el_pptx_${crypto.randomUUID()}`,
+            id: `el_docx_${crypto.randomUUID()}`,
             type: "text",
-            x: 562,
+            x: leftMargin,
             y: yPos,
-            width: 1000,
+            width: elementWidth,
             height: fontSize * 2,
             zIndex: index + 1,
             content: text,
@@ -284,68 +310,204 @@ const handleEdit = async (template: Template) => {
             fontFamily: "Arial",
             color: isTitle ? "#1d4ed8" : "#000000",
             fontWeight: isTitle ? "bold" : "normal",
-            textAlign: "center",
+            textAlign: "left",
             opacity: 1,
           };
-          
+
           parsedElements.push(el);
-          console.log(`✅ PPTX Element created:`, { id: el.id, content: text.substring(0, 30) });
-          
+          console.log(`✅ DOCX Element created:`, { id: el.id, x: el.x, y: el.y, content: text.substring(0, 30) });
+
           yPos += fontSize * 3;
         });
-        
+
         if (parsedElements.length === 0) {
           elements = [
             {
-              id: `el_pptx_notext_${crypto.randomUUID()}`,
+              id: `el_docx_notext_${crypto.randomUUID()}`,
               type: "text",
-              x: 562,
-              y: 300,
-              width: 800,
+              x: leftMargin,
+              y: canvasHeight / 3,
+              width: elementWidth,
               height: 40,
               zIndex: 1,
-              content: "PPTX loaded but no text found - double click to edit",
+              content: "DOCX loaded but no text found - double click to edit",
               fontSize: 20,
               fontFamily: "Arial",
               color: "#64748b",
               fontWeight: "normal",
-              textAlign: "center",
+              textAlign: "left",
               opacity: 1,
             },
           ];
         } else {
           elements = parsedElements;
         }
-        
-        console.log(`📊 Total PPTX elements created: ${elements.length}`);
+
+        console.log(`📊 Total DOCX elements created: ${elements.length}`);
       }
-    } else {
-      alert("Unsupported template file type.");
-      return;
+      else if (template.file_url.endsWith(".pptx")) {
+        const response = await fetch(template.file_url);
+        if (!response.ok) {
+          alert("Failed to fetch the PPTX template file.");
+          return;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+
+        try {
+          const presentationXml = await zip.files["ppt/presentation.xml"].async("string");
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(presentationXml, "text/xml");
+
+          const sldSz = xmlDoc.querySelector("sldSz");
+          if (sldSz) {
+            const cxEMU = parseInt(sldSz.getAttribute("cx") || "0");
+            const cyEMU = parseInt(sldSz.getAttribute("cy") || "0");
+
+            const widthPx = Math.round(cxEMU / 9525);
+            const heightPx = Math.round(cyEMU / 9525);
+
+            console.log(`📏 PPTX slide dimensions: ${widthPx}x${heightPx} px (from ${cxEMU}x${cyEMU} EMU)`);
+
+            detectedFormat = detectPaperFormat(widthPx, heightPx);
+            canvasWidth = SIZE_DIMENSIONS[detectedFormat].width;
+            canvasHeight = SIZE_DIMENSIONS[detectedFormat].height;
+          }
+        } catch (err) {
+          console.warn("Could not extract slide dimensions, using default A4 landscape:", err);
+        }
+
+        const slideFiles = Object.keys(zip.files).filter(name =>
+          name.match(/ppt\/slides\/slide\d+\.xml$/)
+        );
+
+        console.log("📊 Found slides:", slideFiles);
+
+        if (slideFiles.length === 0) {
+          const elementWidth = Math.min(canvasWidth * 0.8, 900);
+          const leftMargin = (canvasWidth - elementWidth) / 2;
+
+          elements = [
+            {
+              id: `el_empty_pptx_${crypto.randomUUID()}`,
+              type: "text",
+              x: leftMargin,
+              y: canvasHeight / 3,
+              width: elementWidth,
+              height: 40,
+              zIndex: 1,
+              content: "Empty PPTX - No slides found",
+              fontSize: 24,
+              fontFamily: "Arial",
+              color: "#000000",
+              fontWeight: "normal",
+              textAlign: "left",
+              opacity: 1,
+            },
+          ];
+        } else {
+          const firstSlide = slideFiles[0];
+          const slideXml = await zip.files[firstSlide].async("string");
+
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(slideXml, "text/xml");
+
+          const textNodes = xmlDoc.querySelectorAll("a\\:t, t");
+
+          console.log("📝 Text nodes found:", textNodes.length);
+
+          let yPos = 100;
+          const parsedElements: CertificateElement[] = [];
+          const elementWidth = Math.min(canvasWidth * 0.8, 900);
+          const leftMargin = (canvasWidth - elementWidth) / 2;
+
+          textNodes.forEach((node, index) => {
+            const text = node.textContent?.trim() || "";
+
+            if (!text) return;
+
+            console.log(`Text ${index}:`, text);
+
+            const isTitle = index === 0;
+            const fontSize = isTitle ? 32 : 18;
+
+            const el: CertificateElement = {
+              id: `el_pptx_${crypto.randomUUID()}`,
+              type: "text",
+              x: leftMargin,
+              y: yPos,
+              width: elementWidth,
+              height: fontSize * 2,
+              zIndex: index + 1,
+              content: text,
+              fontSize: fontSize,
+              fontFamily: "Arial",
+              color: isTitle ? "#1d4ed8" : "#000000",
+              fontWeight: isTitle ? "bold" : "normal",
+              textAlign: "left",
+              opacity: 1,
+            };
+
+            parsedElements.push(el);
+            console.log(`✅ PPTX Element created:`, { id: el.id, x: el.x, y: el.y, content: text.substring(0, 30) });
+
+            yPos += fontSize * 3;
+          });
+
+          if (parsedElements.length === 0) {
+            elements = [
+              {
+                id: `el_pptx_notext_${crypto.randomUUID()}`,
+                type: "text",
+                x: leftMargin,
+                y: canvasHeight / 3,
+                width: elementWidth,
+                height: 40,
+                zIndex: 1,
+                content: "PPTX loaded but no text found - double click to edit",
+                fontSize: 20,
+                fontFamily: "Arial",
+                color: "#64748b",
+                fontWeight: "normal",
+                textAlign: "left",
+                opacity: 1,
+              },
+            ];
+          } else {
+            elements = parsedElements;
+          }
+
+          console.log(`📊 Total PPTX elements created: ${elements.length}`);
+        }
+      } else {
+        alert("Unsupported template file type.");
+        return;
+      }
+
+      console.log("🎯 Final elements array:", elements);
+      console.log("🎯 Element IDs:", elements.map(e => ({ id: e.id, x: e.x, y: e.y, content: e.content?.substring(0, 30) })));
+
+      const cert = createCertificateFromPreview(detectedFormat, template.name || "Untitled");
+      cert.name = template.name || "Untitled Certificate";
+      cert.width = canvasWidth;
+      cert.height = canvasHeight;
+      cert.elements = [...elements];
+      cert.backgroundColor = "#ffffff";
+
+      console.log(`🎨 Certificate created with ${elements.length} elements in ${detectedFormat} format (${canvasWidth}x${canvasHeight})`);
+
+      setCurrentCertificate(cert);
+
+      setTimeout(() => {
+        navigate("/app/studio/certificate-editor");
+      }, 150);
+
+    } catch (err) {
+      console.error("❌ Error opening template:", err);
+      alert("Failed to open template for editing.");
     }
-
-    console.log("🎯 Final elements array:", elements);
-    console.log("🎯 Element IDs:", elements.map(e => ({ id: e.id, content: e.content?.substring(0, 30) })));
-
-    const cert = createCertificateFromPreview("a4-landscape", template.name || "Untitled");
-    cert.name = template.name || "Untitled Certificate";
-    cert.elements = [...elements];
-    cert.backgroundColor = "#ffffff";
-
-    console.log("🎨 Certificate created with elements:", cert.elements.length);
-
-    setCurrentCertificate(cert);
-
-    setTimeout(() => {
-      navigate("/app/studio/certificate-editor");
-    }, 150);
-
-  } catch (err) {
-    console.error("❌ Error opening template:", err);
-    alert("Failed to open template for editing.");
-  }
-};
-
+  };
 
   return (
     <div className="h-full bg-slate-900 text-white p-10">

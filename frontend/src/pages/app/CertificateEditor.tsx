@@ -1,3 +1,6 @@
+//src/pages/app/CertificateEditor.tsx
+
+
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CertificateElement } from "../../types/certificate";
@@ -46,7 +49,7 @@ const CertificateEditor: React.FC = () => {
     }) => {
       if (!selectedElement || !currentCertificate) return;
 
-      handleElementUpdate(selectedElement, style); // CONNECTED TO CERTIFICATE.TS TEXT ALIGNMENT
+      handleElementUpdate(selectedElement, style);
     },
     [selectedElement, currentCertificate, handleElementUpdate]
   );
@@ -79,6 +82,13 @@ const CertificateEditor: React.FC = () => {
   }
 
   const scale = zoom / 100;
+
+  console.log("🎨 CertificateEditor rendering with certificate:", {
+    width: currentCertificate.width,
+    height: currentCertificate.height,
+    size: currentCertificate.size,
+    elementCount: currentCertificate.elements.length
+  });
 
   return (
     <div className="h-screen w-full bg-slate-900 flex flex-col">

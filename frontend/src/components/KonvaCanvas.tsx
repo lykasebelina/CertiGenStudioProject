@@ -1,5 +1,3 @@
-//KonvaCanvas.tsx
-
 import { useEffect, useRef, useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Text, Transformer } from "react-konva";
 import Konva from "konva";
@@ -121,10 +119,6 @@ export default function KonvaCanvas({
     });
   };
 
-
-
-
-  
   const sortedElements = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   const textElements = sortedElements.filter((el) => el.type === "text" || el.type === "signature");
 
@@ -171,13 +165,30 @@ export default function KonvaCanvas({
             const isSelected = selectedId === element.id;
             const textAlign = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "right" : "left";
 
+            const elementWidth = element.width ?? 200;
+            let xPosition = element.x;
+
+            if (textAlign === "center") {
+              xPosition = element.x - elementWidth / 2;
+            } else if (textAlign === "right") {
+              xPosition = element.x - elementWidth;
+            }
+
+            console.log(`📝 Rendering text element ${element.id}:`, {
+              content: element.content?.substring(0, 30),
+              x: xPosition,
+              y: element.y,
+              width: elementWidth,
+              align: textAlign
+            });
+
             return (
               <Text
                 key={element.id}
                 text={element.content || ""}
-                x={element.x - (element.width ?? 200) / 2}
+                x={xPosition}
                 y={element.y}
-                width={element.width ?? 200}
+                width={elementWidth}
                 fontSize={element.fontSize ?? 16}
                 fontFamily={element.fontFamily ?? "Arial"}
                 fill={element.color ?? "#000000"}

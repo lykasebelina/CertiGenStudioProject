@@ -1,4 +1,4 @@
-//CertificateLayout.tsx
+////  src/layouts/CertificateLayout.tsx
 
 import React from "react";
 

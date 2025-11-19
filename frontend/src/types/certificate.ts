@@ -1,4 +1,4 @@
-// src/lib/types/certificate.ts
+// src//types/certificate.ts
 
 export interface CertificateElement {
   id: string;
@@ -63,6 +63,7 @@ metadata?: CornerFrameMetadata;
   
 
   // --- Visuals / Backgrounds ---
+
   imageUrl?: string; // background images, border textures, decorative patterns
   backgroundColor?: string;
 

@@ -1,3 +1,6 @@
+// src/lib/openai/generators/textGenerator.ts
+
+
 // -------------------------------------------------------
 // FULLY PATCHED FILE — READY TO PASTE
 // -------------------------------------------------------
