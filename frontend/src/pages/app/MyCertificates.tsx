@@ -1,91 +1,163 @@
-import { Award, Download, Eye, Trash2 } from "lucide-react";
+// src/pages/MyCertificates.tsx
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
+import CertificateTemplate from "../../components/CertificateTemplate";
+import { CertificateElement } from "../../types/certificate";
+import { useCertificate } from "../../context/CertificateContext";
 
-interface Certificate {
+// Map certificate sizes to dimensions
+const SIZE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "a4-portrait": { width: 794, height: 1123 },
+  "a4-landscape": { width: 1123, height: 794 },
+  "legal-portrait": { width: 816, height: 1344 },
+  "legal-landscape": { width: 1344, height: 816 },
+  "letter-portrait": { width: 816, height: 1056 },
+  "letter-landscape": { width: 1056, height: 816 },
+};
+
+type CertificateRow = {
   id: string;
-  recipientName: string;
-  title: string;
-  createdAt: string;
-  thumbnail: string;
-}
+  user_id: string;
+  title: string | null;
+  prompt: string | null;
+  size: string | null;
+  elements: CertificateElement[];
+  created_at: string;
+};
 
-function MyCertificates() {
-  const mockCertificates: Certificate[] = [
-    { id: "1", recipientName: "Marceline Anderson", title: "Certificate of Appreciation", createdAt: "July 15, 2024", thumbnail: "sample1" },
-    { id: "2", recipientName: "John Smith", title: "Certificate of Achievement", createdAt: "July 10, 2024", thumbnail: "sample2" },
-    { id: "3", recipientName: "Sarah Johnson", title: "Certificate of Excellence", createdAt: "July 5, 2024", thumbnail: "sample3" },
-    { id: "4", recipientName: "David Lee", title: "Employee of the Month", createdAt: "June 28, 2024", thumbnail: "sample4" },
-    { id: "5", recipientName: "Emma Davis", title: "Outstanding Performance", createdAt: "June 22, 2024", thumbnail: "sample5" },
-    { id: "6", recipientName: "Michael Brown", title: "Leadership Award", createdAt: "June 15, 2024", thumbnail: "sample6" },
-    { id: "7", recipientName: "Olivia Taylor", title: "Certificate of Completion", createdAt: "June 10, 2024", thumbnail: "sample7" },
-    { id: "8", recipientName: "Liam Wilson", title: "Top Performer", createdAt: "June 5, 2024", thumbnail: "sample8" },
-  ];
+export default function MyCertificates() {
+  const navigate = useNavigate();
+  const { setCurrentCertificate } = useCertificate();
+  const [certificates, setCertificates] = useState<CertificateRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    fetchList();
+  }, []);
+
+  const fetchList = async () => {
+    setLoading(true);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-certificates`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const json = await res.json();
+
+      if (res.ok) {
+        setCertificates(json.certificates ?? []);
+      } else {
+        console.error("Failed to fetch certificates:", json);
+      }
+    } catch (err) {
+      console.error("Error fetching certificates:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCertificates = certificates.filter((c) =>
+    c.title?.toLowerCase().includes(searchTerm.toLowerCase() || "")
+  );
 
   return (
-    <div className="h-full bg-slate-900 text-white p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-900 text-white p-10">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-1">My Certificates</h1>
-            <p className="text-slate-400 text-sm">
-              View, manage, and download your AI-generated certificates
+            <p className="text-slate-400 text-sm max-w-xl">
+              Your saved certificates. Click "Edit" to modify them.
             </p>
           </div>
-          <Award className="w-10 h-10 text-blue-400" />
         </div>
 
-        {/* Certificates Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {mockCertificates.map((cert) => (
-            <div
-              key={cert.id}
-              className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500 transition-all group hover:shadow-lg hover:scale-[1.02]"
-            >
-              {/* Thumbnail */}
-              <div className="aspect-[14/8.5] bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center border-b border-slate-700">
-                <Award className="w-16 h-16 text-white opacity-90 group-hover:scale-110 transition-transform duration-200" />
-              </div>
+        {/* Search bar */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search certificates..."
+            className="w-full p-2 bg-slate-700 border border-slate-600 rounded text-white"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-              {/* Info */}
-              <div className="p-4">
-                <h3 className="text-white font-semibold mb-1 truncate">{cert.title}</h3>
-                <p className="text-slate-400 text-sm mb-1 truncate">{cert.recipientName}</p>
-                <p className="text-slate-500 text-xs mb-4">{cert.createdAt}</p>
+        {/* Content */}
+        {loading ? (
+          <p>Loading certificates...</p>
+        ) : filteredCertificates.length === 0 ? (
+          <div className="p-8 bg-slate-800 rounded shadow text-slate-400">
+            No certificates found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCertificates.map((c) => (
+              <div
+                key={c.id}
+                className="bg-slate-800 border border-slate-700 rounded-lg p-4 flex flex-col"
+              >
+                {/* Preview */}
+                <div className="aspect-video bg-slate-700 flex items-center justify-center mb-2 overflow-hidden">
+                  <CertificateTemplate elements={c.elements ?? []} />
+                </div>
 
-                {/* Buttons */}
-                <div className="flex gap-2">
-                  <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                    <Eye className="w-4 h-4" />
-                    View
-                  </button>
-                  <button className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center">
-                    <Download className="w-4 h-4" />
-                  </button>
-                  <button className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center">
-                    <Trash2 className="w-4 h-4" />
+                {/* Info */}
+                <h3 className="font-semibold mb-1">{c.title || "(untitled)"}</h3>
+                <p className="text-slate-400 text-xs mb-2">{c.size}</p>
+                <p className="text-slate-500 text-xs mb-2">
+                  {new Date(c.created_at).toLocaleString()}
+                </p>
+
+                {/* Edit button */}
+                <div className="mt-auto flex gap-2">
+                  <button
+                    className="px-3 py-1 bg-yellow-500 rounded text-sm hover:bg-yellow-600"
+                    onClick={() => {
+                      const dimensions =
+                        SIZE_DIMENSIONS[c.size || "a4-portrait"];
+
+                      setCurrentCertificate({
+                        id: c.id,
+                        name: c.title || "Untitled",
+                        size: c.size as any,
+                        width: dimensions.width,
+                        height: dimensions.height,
+                        backgroundColor: "#ffffff",
+                        elements: c.elements || [],
+                        createdAt: new Date(c.created_at),
+                        prompt: c.prompt || "",
+                      });
+
+                      navigate("/app/studio/certificate-editor");
+                    }}
+                  >
+                    Edit
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {mockCertificates.length === 0 && (
-          <div className="text-center py-16">
-            <Award className="w-24 h-24 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl text-slate-300 mb-2">No certificates yet</h3>
-            <p className="text-slate-400 mb-6">
-              Start creating beautiful certificates with AI
-            </p>
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-              Create Certificate
-            </button>
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 }
-
-export default MyCertificates;

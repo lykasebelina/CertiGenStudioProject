@@ -1,5 +1,4 @@
-//src/pages/app/CertificateEditor.tsx
-
+// src/pages/app/CertificateEditor.tsx
 
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +17,9 @@ const CertificateEditor: React.FC = () => {
   const [zoom, setZoom] = useState(75);
   const [activeToolTab, setActiveToolTab] = useState<"select" | "pattern">("select");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(0);
+
+  // Track image loading state
+  const [loadingImages, setLoadingImages] = useState<boolean>(true);
 
   const handleElementSelect = useCallback((id: string | null) => {
     setSelectedElement(id);
@@ -83,15 +85,8 @@ const CertificateEditor: React.FC = () => {
 
   const scale = zoom / 100;
 
-  console.log("🎨 CertificateEditor rendering with certificate:", {
-    width: currentCertificate.width,
-    height: currentCertificate.height,
-    size: currentCertificate.size,
-    elementCount: currentCertificate.elements.length
-  });
-
   return (
-    <div className="h-screen w-full bg-slate-900 flex flex-col">
+    <div className="h-screen w-full bg-slate-900 flex flex-col relative">
       <EditorTopBar
         activeToolTab={activeToolTab}
         setActiveToolTab={setActiveToolTab}
@@ -118,7 +113,15 @@ const CertificateEditor: React.FC = () => {
             elements={currentCertificate.elements}
             onElementSelect={handleElementSelect}
             onElementUpdate={handleElementUpdate}
+            onImagesLoaded={() => setLoadingImages(false)} // callback from KonvaCanvas
           />
+
+          {/* Loading overlay */}
+          {loadingImages && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-lg font-semibold">
+              Loading images...
+            </div>
+          )}
         </div>
       </div>
 

@@ -11,12 +11,14 @@
     "mammoth": "^1.11.0",
     "openai": "^6.9.0",
     "pptx-text-parser": "^1.1.1",
-    "react-konva": "^19.2.0"
+    "react-konva": "^19.2.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/fabric": "^5.3.10",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.10.1",
+    "@types/uuid": "^10.0.0"
   }
 }

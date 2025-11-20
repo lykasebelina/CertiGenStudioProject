@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Text, Transformer } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer } from "react-konva";
 import Konva from "konva";
-import { CertificateElement } from "../types/certificate";
+import { CertificateElement, CornerFrameMetadata } from "../types/certificate";
 
 interface KonvaCanvasProps {
   width: number;
@@ -9,6 +9,7 @@ interface KonvaCanvasProps {
   elements: CertificateElement[];
   onElementSelect?: (id: string | null) => void;
   onElementUpdate?: (id: string, updates: Partial<CertificateElement>) => void;
+  onImagesLoaded?: () => void;
 }
 
 interface ImageElement {
@@ -17,59 +18,74 @@ interface ImageElement {
   element: CertificateElement;
 }
 
+const base64Cache: Record<string, string> = {};
+
+async function fetchImageAsBase64(url: string): Promise<string> {
+  if (base64Cache[url]) return base64Cache[url];
+  try {
+    const isDalleUrl = /oaidalleapiprodscus\.blob\.core\.windows\.net\/private/.test(url);
+    const fetchUrl = isDalleUrl ? `/api/proxy-image?url=${encodeURIComponent(url)}` : url;
+    const response = await fetch(fetchUrl);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+    const blob = await response.blob();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () =>
+        typeof reader.result === "string" ? resolve(reader.result) : reject("Failed to convert image");
+      reader.onerror = () => reject("FileReader error");
+      reader.readAsDataURL(blob);
+    });
+    base64Cache[url] = base64;
+    return base64;
+  } catch (err) {
+    console.error("fetchImageAsBase64 error:", err);
+    throw err;
+  }
+}
+
 export default function KonvaCanvas({
   width,
   height,
   elements,
   onElementSelect,
   onElementUpdate,
+  onImagesLoaded,
 }: KonvaCanvasProps) {
-  console.log("🖼️ KonvaCanvas rendering with:", {
-    width,
-    height,
-    elementCount: elements.length,
-    elements: elements
-  });
-
   const [images, setImages] = useState<ImageElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const selectedShapeRef = useRef<Konva.Node | null>(null);
 
+  // Load images
   useEffect(() => {
     const loadImages = async () => {
-      const imageElements = elements.filter((el) => el.imageUrl);
+      const imageElements = elements.filter(
+        (el) =>
+          (el.type === "image" || el.type === "background" || el.type === "cornerFrame") &&
+          el.imageUrl
+      );
       const loadedImages: ImageElement[] = [];
-
       for (const element of imageElements) {
-        if (element.imageUrl) {
-          try {
-            const img = new window.Image();
-            img.crossOrigin = "anonymous";
-
-            await new Promise<void>((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = () => reject();
-              img.src = element.imageUrl!;
-            });
-
-            loadedImages.push({
-              id: element.id,
-              image: img,
-              element,
-            });
-          } catch (error) {
-            console.error(`Failed to load image for element ${element.id}:`, error);
-          }
+        try {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          const base64Url = await fetchImageAsBase64(element.imageUrl!);
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error("Failed to load image"));
+            img.src = base64Url;
+          });
+          loadedImages.push({ id: element.id, image: img, element });
+        } catch (err) {
+          console.error(`Failed to load image ${element.id}:`, err);
         }
       }
-
       setImages(loadedImages);
+      onImagesLoaded?.();
     };
-
     loadImages();
-  }, [elements]);
+  }, [elements, onImagesLoaded]);
 
   useEffect(() => {
     if (transformerRef.current && selectedShapeRef.current) {
@@ -91,17 +107,13 @@ export default function KonvaCanvas({
   };
 
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, elementId: string) => {
-    onElementUpdate?.(elementId, {
-      x: e.target.x(),
-      y: e.target.y(),
-    });
+    onElementUpdate?.(elementId, { x: e.target.x(), y: e.target.y() });
   };
 
   const handleTransformEnd = (e: Konva.KonvaEventObject<Event>, elementId: string) => {
     const node = e.target;
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
-
     node.scaleX(1);
     node.scaleY(1);
 
@@ -110,17 +122,27 @@ export default function KonvaCanvas({
       y: node.y(),
       width: Math.max(5, node.width() * scaleX),
       height: Math.max(5, node.height() * scaleY),
-    });
-  };
-
-  const handleTextChange = (elementId: string, newText: string) => {
-    onElementUpdate?.(elementId, {
-      content: newText,
+      rotation: node.rotation(),
     });
   };
 
   const sortedElements = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-  const textElements = sortedElements.filter((el) => el.type === "text" || el.type === "signature");
+
+  const getCornerPosition = (meta: CornerFrameMetadata, elWidth: number, elHeight: number) => {
+    // Align precisely with stage edges
+    switch (meta.corner) {
+      case "tl":
+        return { x: 0, y: 0 };
+      case "tr":
+        return { x: width - elWidth, y: 0 };
+      case "bl":
+        return { x: 0, y: height - elHeight };
+      case "br":
+        return { x: width - elWidth, y: height - elHeight };
+      default:
+        return { x: 0, y: 0 };
+    }
+  };
 
   return (
     <div className="shadow-lg border border-slate-300">
@@ -133,140 +155,177 @@ export default function KonvaCanvas({
         style={{ backgroundColor: "#ffffff" }}
       >
         <Layer>
-          {images.map((img) => {
-            const isSelected = selectedId === img.id;
-            const scaleX = img.element.width ? img.element.width / img.image.width : 1;
-            const scaleY = img.element.height ? img.element.height / img.image.height : 1;
+          {sortedElements.map((el) => {
+            const isSelected = selectedId === el.id;
 
-            return (
-              <KonvaImage
-                key={img.id}
-                image={img.image}
-                x={img.element.x}
-                y={img.element.y}
-                scaleX={scaleX}
-                scaleY={scaleY}
-                opacity={img.element.opacity ?? 1}
-                draggable
-                onClick={() => handleSelect(img.id)}
-                onTap={() => handleSelect(img.id)}
-                onDragEnd={(e) => handleDragEnd(e, img.id)}
-                onTransformEnd={(e) => handleTransformEnd(e, img.id)}
-                ref={(node) => {
-                  if (isSelected) {
-                    selectedShapeRef.current = node;
-                  }
-                }}
-              />
-            );
-          })}
+            if (["image", "background"].includes(el.type)) {
+              const imgObj = images.find((i) => i.id === el.id);
+              if (!imgObj) return null;
+              const scaleX = el.width ? el.width / imgObj.image.width : 1;
+              const scaleY = el.height ? el.height / imgObj.image.height : 1;
 
-          {textElements.map((element) => {
-            const isSelected = selectedId === element.id;
-            const textAlign = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "right" : "left";
-
-            const elementWidth = element.width ?? 200;
-            let xPosition = element.x;
-
-            if (textAlign === "center") {
-              xPosition = element.x - elementWidth / 2;
-            } else if (textAlign === "right") {
-              xPosition = element.x - elementWidth;
+              return (
+                <KonvaImage
+                  key={el.id}
+                  image={imgObj.image}
+                  x={el.x}
+                  y={el.y}
+                  scaleX={scaleX}
+                  scaleY={scaleY}
+                  rotation={el.rotate ?? 0}
+                  opacity={el.opacity ?? 1}
+                  draggable
+                  onClick={() => handleSelect(el.id)}
+                  onTap={() => handleSelect(el.id)}
+                  onDragEnd={(e) => handleDragEnd(e, el.id)}
+                  onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                  ref={(node) => {
+                    if (isSelected) selectedShapeRef.current = node;
+                  }}
+                />
+              );
             }
 
-            console.log(`📝 Rendering text element ${element.id}:`, {
-              content: element.content?.substring(0, 30),
-              x: xPosition,
-              y: element.y,
-              width: elementWidth,
-              align: textAlign
-            });
+            if (el.type === "cornerFrame") {
+              const elWidth = el.width ?? 50;
+              const elHeight = el.height ?? 50;
+              let x = el.x;
+              let y = el.y;
 
-            return (
-              <Text
-                key={element.id}
-                text={element.content || ""}
-                x={xPosition}
-                y={element.y}
-                width={elementWidth}
-                fontSize={element.fontSize ?? 16}
-                fontFamily={element.fontFamily ?? "Arial"}
-                fill={element.color ?? "#000000"}
-                fontStyle={element.fontWeight === "bold" ? "bold" : "normal"}
-                align={textAlign}
-                draggable
-                onClick={() => handleSelect(element.id)}
-                onTap={() => handleSelect(element.id)}
-                onDragEnd={(e) => handleDragEnd(e, element.id)}
-                onTransformEnd={(e) => handleTransformEnd(e, element.id)}
-                onDblClick={(e) => {
-                  const textNode = e.target as Konva.Text;
-                  const stage = textNode.getStage();
-                  if (!stage) return;
+              if (el.metadata?.isCornerFrame) {
+                const pos = getCornerPosition(el.metadata, elWidth, elHeight);
+                x = pos.x;
+                y = pos.y;
+              }
 
-                  textNode.hide();
-                  const textarea = document.createElement("textarea");
-                  document.body.appendChild(textarea);
+              if (el.imageUrl) {
+                const imgObj = images.find((i) => i.id === el.id);
+                if (!imgObj) return null;
+                const scaleX = elWidth / imgObj.image.width;
+                const scaleY = elHeight / imgObj.image.height;
 
-                  const textPosition = textNode.getClientRect();
-                  const stageBox = stage.container().getBoundingClientRect();
-                  const areaPosition = {
-                    x: stageBox.left + textPosition.x,
-                    y: stageBox.top + textPosition.y,
-                  };
-
-                  textarea.value = textNode.text();
-                  textarea.style.position = "absolute";
-                  textarea.style.top = areaPosition.y + "px";
-                  textarea.style.left = areaPosition.x + "px";
-                  textarea.style.width = textNode.width() - (textNode.padding() * 2) + "px";
-                  textarea.style.fontSize = textNode.fontSize() + "px";
-                  textarea.style.border = "none";
-                  textarea.style.padding = "0px";
-                  textarea.style.margin = "0px";
-                  textarea.style.overflow = "hidden";
-                  textarea.style.background = "none";
-                  textarea.style.outline = "none";
-                  textarea.style.resize = "none";
-                  textarea.style.lineHeight = textNode.lineHeight().toString();
-                  textarea.style.fontFamily = textNode.fontFamily();
-                  textarea.style.transformOrigin = "left top";
-                  textarea.style.textAlign = textNode.align();
-                  textarea.style.color = String(textNode.fill());
-
-                  textarea.focus();
-
-                  textarea.addEventListener("keydown", (e) => {
-                    if (e.key === "Escape") {
-                      textNode.show();
-                      document.body.removeChild(textarea);
+                return (
+                  <KonvaImage
+                    key={el.id}
+                    image={imgObj.image}
+                    x={x}
+                    y={y}
+                    scaleX={scaleX}
+                    scaleY={scaleY}
+                    rotation={el.rotate ?? 0}
+                    draggable
+                    onClick={() => handleSelect(el.id)}
+                    onTap={() => handleSelect(el.id)}
+                    onDragEnd={(e) => handleDragEnd(e, el.id)}
+                    onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                    ref={(node) => {
+                      if (isSelected) selectedShapeRef.current = node;
+                    }}
+                  />
+                );
+              } else {
+                return (
+                  <Rect
+                    key={el.id}
+                    x={x}
+                    y={y}
+                    width={elWidth}
+                    height={elHeight}
+                    fill={el.backgroundColor ?? "transparent"}
+                    stroke={el.borderColor ?? "#000"}
+                    strokeWidth={el.borderWidth ?? 2}
+                    dash={
+                      el.borderStyle === "dashed"
+                        ? [10, 5]
+                        : el.borderStyle === "dotted"
+                        ? [2, 4]
+                        : []
                     }
-                  });
+                    rotation={el.rotate ?? 0}
+                    draggable={el.draggable ?? false}
+                    onClick={() => handleSelect(el.id)}
+                    onTap={() => handleSelect(el.id)}
+                    onDragEnd={(e) => handleDragEnd(e, el.id)}
+                    onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                    ref={(node) => {
+                      if (isSelected) selectedShapeRef.current = node;
+                    }}
+                  />
+                );
+              }
+            }
 
-                  textarea.addEventListener("blur", () => {
-                    handleTextChange(element.id, textarea.value);
-                    textNode.show();
-                    document.body.removeChild(textarea);
-                  });
-                }}
-                ref={(node) => {
-                  if (isSelected) {
-                    selectedShapeRef.current = node;
+            if (["border", "innerFrame"].includes(el.type)) {
+              return (
+                <Rect
+                  key={el.id}
+                  x={el.x}
+                  y={el.y}
+                  width={el.width ?? 100}
+                  height={el.height ?? 100}
+                  fill={el.backgroundColor ?? "transparent"}
+                  stroke={el.borderColor ?? "#000000"}
+                  strokeWidth={el.borderWidth ?? 2}
+                  dash={
+                    el.borderStyle === "dashed"
+                      ? [10, 5]
+                      : el.borderStyle === "dotted"
+                      ? [2, 4]
+                      : []
                   }
-                }}
-              />
-            );
+                  draggable={el.draggable ?? false}
+                  onClick={() => handleSelect(el.id)}
+                  onTap={() => handleSelect(el.id)}
+                  onDragEnd={(e) => handleDragEnd(e, el.id)}
+                  onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                  ref={(node) => {
+                    if (isSelected) selectedShapeRef.current = node;
+                  }}
+                />
+              );
+            }
+
+            if (["text", "signature"].includes(el.type)) {
+              const textAlign =
+                el.textAlign === "center" ? "center" : el.textAlign === "right" ? "right" : "left";
+              const elementWidth = el.width ?? 200;
+              let xPos = el.x;
+              if (textAlign === "center") xPos = el.x - elementWidth / 2;
+              else if (textAlign === "right") xPos = el.x - elementWidth;
+
+              return (
+                <Text
+                  key={el.id}
+                  text={el.content || ""}
+                  x={xPos}
+                  y={el.y}
+                  width={elementWidth}
+                  fontSize={el.fontSize ?? 16}
+                  fontFamily={el.fontFamily ?? "Arial"}
+                  fill={el.color ?? "#000000"}
+                  fontStyle={el.fontWeight === "bold" ? "bold" : "normal"}
+                  align={textAlign}
+                  draggable
+                  onClick={() => handleSelect(el.id)}
+                  onTap={() => handleSelect(el.id)}
+                  onDragEnd={(e) => handleDragEnd(e, el.id)}
+                  onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                  ref={(node) => {
+                    if (isSelected) selectedShapeRef.current = node;
+                  }}
+                />
+              );
+            }
+
+            return null;
           })}
 
           {selectedId && (
             <Transformer
               ref={transformerRef}
-              boundBoxFunc={(oldBox, newBox) => {
-                if (newBox.width < 5 || newBox.height < 5) {
-                  return oldBox;
-                }
-                return newBox;
-              }}
+              boundBoxFunc={(oldBox, newBox) =>
+                newBox.width < 5 || newBox.height < 5 ? oldBox : newBox
+              }
             />
           )}
         </Layer>

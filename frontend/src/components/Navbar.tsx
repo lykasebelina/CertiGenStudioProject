@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import certigenLogo from "@/assets/certigen_logo.png";
 
@@ -10,13 +9,6 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onSignIn, onSignUp }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
-    `px-6 py-2 rounded-full text-sm font-medium transition-all ${
-      isActive
-        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
-        : "text-white/80 hover:text-white hover:bg-gradient-to-r hover:from-blue-500 hover:to-purple-600"
-    }`;
 
   const buttonClasses =
     "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full text-sm font-semibold transition-all";
@@ -36,25 +28,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSignIn, onSignUp }) => {
             <span className="text-white text-xl font-bold">CERTIGEN</span>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <NavLink to="/" className={navLinkClasses}>
-              HOME
-            </NavLink>
-            <NavLink to="/features" className={navLinkClasses}>
-              FEATURES
-            </NavLink>
-            <NavLink to="/demo" className={navLinkClasses}>
-              DEMO
-            </NavLink>
-            <NavLink to="/about" className={navLinkClasses}>
-              ABOUT
-            </NavLink>
-          </div>
-
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <button onClick={onSignIn} className={navLinkClasses({ isActive: false })}>
+            <button onClick={onSignIn} className={buttonClasses}>
               SIGN IN
             </button>
             <button onClick={onSignUp} className={buttonClasses}>
@@ -75,20 +51,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSignIn, onSignUp }) => {
         {isMenuOpen && (
           <div className="md:hidden mt-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
             <div className="flex flex-col space-y-4">
-              <NavLink to="/" className={navLinkClasses}>
-                HOME
-              </NavLink>
-              <NavLink to="/features" className={navLinkClasses}>
-                FEATURES
-              </NavLink>
-              <NavLink to="/demo" className={navLinkClasses}>
-                DEMO
-              </NavLink>
-              <NavLink to="/about" className={navLinkClasses}>
-                ABOUT
-              </NavLink>
-              <hr className="border-white/20" />
-              <button onClick={onSignIn} className={navLinkClasses({ isActive: false })}>
+              <button onClick={onSignIn} className={buttonClasses + " w-full"}>
                 SIGN IN
               </button>
               <button onClick={onSignUp} className={buttonClasses + " w-full"}>

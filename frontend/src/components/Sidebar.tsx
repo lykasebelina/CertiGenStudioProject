@@ -1,10 +1,10 @@
 import {
   Home,
   Sparkles,
-  Library,
+ // Library,
   FileText,
   Palette,
-  Heart,
+  //Heart,
   Settings as SettingsIcon,
   Award,
   ChevronLeft,
@@ -42,11 +42,11 @@ function Sidebar({
   const menuItems = [
     { id: "ai-generate", label: "AI Generate", icon: Sparkles },
     { id: "home-dashboard", label: "Home", icon: Home },
-    { id: "template-library", label: "Template Library", icon: Library },
+//    { id: "template-library", label: "Template Library", icon: Library },
     { id: "custom-template", label: "Custom Template Hub", icon: FileText },
     { id: "brand-kit", label: "Brand Kit", icon: Palette },
     { id: "my-certificates", label: "My Certificates", icon: Award },
-    { id: "favorites", label: "Favorites", icon: Heart },
+   // { id: "favorites", label: "Favorites", icon: Heart },
     { id: "settings", label: "Settings", icon: SettingsIcon },
   ];
 

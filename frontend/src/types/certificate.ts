@@ -1,4 +1,4 @@
-// src//types/certificate.ts
+// src/types/certificate.ts
 
 export interface CertificateElement {
   id: string;
@@ -20,7 +20,7 @@ export interface CertificateElement {
     | "innerFrame";
 
   // --- Common fields ---
-  content?: string;
+  content?: string;            // For text/signature content
   x: number;
   y: number;
   zIndex?: number;
@@ -28,90 +28,56 @@ export interface CertificateElement {
   height?: number;
   opacity?: number;
 
-
-
   // --- Text styling ---
- fontSize?: number;
+  fontSize?: number;
   fontFamily?: string;
   color?: string;
   bold?: boolean;
   italic?: boolean;
-  underline?: boolean; // ✨ NEW
+  underline?: boolean;
   align?: "left" | "center" | "right";
-textAlign?: string;
+  textAlign?: string;
   fontWeight?: string;
-  letterSpacing?: number; // ✨ NEW
-  lineHeight?: number; // ✨ NEW
-  textTransform?: "uppercase" | "capitalize" | "none"; // ✨ NEW
+  letterSpacing?: number;
+  lineHeight?: number;
+  textTransform?: "uppercase" | "capitalize" | "none";
+  wrap?: "word" | "char" | "none";
 
+  textFrameWidth?: number;     // Fixed text frame width
+  textFrameHeight?: number;    // Fixed text frame height
+  maxChars?: number;           // Maximum characters allowed
 
-wrap?: "word" | "char" | "none";
+  // --- Transform controls (Konva-compatible) ---
+  scaleX?: number;
+  scaleY?: number;
+  rotation?: number;
+  rotate?: number;
 
-  
-// --- Transform controls (Konva-compatible) ---
-scaleX?: number;
-scaleY?: number;
-rotation?: number;
-
-rotate?: number;
-metadata?: CornerFrameMetadata;
-
+  // --- Metadata for corner frames ---
+  metadata?: CornerFrameMetadata;
 
   // --- Signature-specific additions ---
-  isSignatureLine?: boolean; // ✨ helps draw signature lines
+  isSignatureLine?: boolean;
 
-  
-
-  // --- Visuals / Backgrounds ---
-
-  imageUrl?: string; // background images, border textures, decorative patterns
+  // --- Visuals / Backgrounds / Images ---
+  imageUrl?: string;           // Background, corner frames, decorative icons
   backgroundColor?: string;
-
   style?: Record<string, string>;
 
-  // --- 🟨 Border-specific additions ---
+  // --- Border-specific additions ---
   borderColor?: string;
   borderWidth?: number;
   borderStyle?: "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge" | "none";
 
+  // --- Fabric.js / Konva control flags ---
+  selectable?: boolean;
+  draggable?: boolean;
 
-    // --- Fabric.js control flags (FIX) ---
-  selectable?: boolean; // ⭐ Now allowed
-  draggable?: boolean;  // ⭐ Now allowed
-
-
- // --- NEW, non-breaking control flags for auto-flow ---
-  /**
-   * When true (default for text elements we generate), this element participates in the
-   * automatic vertical flow/stacking algorithm. Keep false for signatures, images, borders.
-   */
-  autoFlow?: boolean;
-
-  /**
-   * When true, element.y was manually set by the user (drag). The auto-flow algorithm
-   * will avoid overriding the user's manual Y position for that element.
-   */
-  manualY?: boolean;
-    // set when user manually drags (parent should set this)
-  measuredHeight?: number;
-
-
-   textFrameWidth?: number;
-
-  /**
-   * The fixed text frame height (pixels) to enforce for this text element.
-   */
-  textFrameHeight?: number;
-
-  /**
-   * Maximum number of characters allowed in the content.
-   * When present, generator and renderer will trim content to this limit.
-   */
-  maxChars?: number;
-
-
+  // --- Auto-flow / manual placement ---
+  autoFlow?: boolean;          // participate in auto vertical flow
+  manualY?: boolean;           // user manually dragged
+  measuredHeight?: number;     // height measured after rendering
 }
-
 
 export interface CornerFrameMetadata {
   corner: "tl" | "tr" | "bl" | "br";
@@ -157,5 +123,3 @@ export interface CertificateLayer {
   height: number;
   zIndex?: number;
 }
-
-

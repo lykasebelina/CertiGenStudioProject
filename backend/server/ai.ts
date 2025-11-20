@@ -29,7 +29,8 @@ app.post("/extract", async (req, res) => {
 
 Extract and generate all certificate fields from this user prompt:
 
-"{{PROMPT}}"
+
+"${prompt}"
 
 Follow these STRICT RULES to prevent redundancy and maintain proper certificate structure:
 
