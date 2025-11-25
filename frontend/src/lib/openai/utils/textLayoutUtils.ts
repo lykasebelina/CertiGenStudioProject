@@ -82,10 +82,10 @@ export function positionSignaturesAdvanced(
     } else {
       // Portrait
       signatures[0].x = leftX;
-      signatures[0].y = bottomY - rowGap * 2;
+      signatures[0].y = bottomY - rowGap * 1.6;
       
       signatures[1].x = rightX;
-      signatures[1].y = bottomY - rowGap * 2;
+      signatures[1].y = bottomY - rowGap * 1.6;
 
       signatures[2].x = centerX;
       signatures[2].y = bottomY;
@@ -107,7 +107,7 @@ export function positionSignaturesAdvanced(
       // Portrait
       signatures[0].x = leftX;
       signatures[1].x = rightX;
-      signatures[0].y = signatures[1].y = bottomY - rowGap * 2;
+      signatures[0].y = signatures[1].y = bottomY - rowGap * 1.6;
 
       signatures[2].x = indentLeft * 1 - 22;
       signatures[3].x = indentRight * 1 + 22;

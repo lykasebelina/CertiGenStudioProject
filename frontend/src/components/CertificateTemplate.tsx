@@ -1,7 +1,6 @@
-// CertificateTemplate.tsx – Element Renderer 
 import { CertificateElement } from "../types/certificate";
 
-//const showDebugFrames = true; // ← set to false to hide the outlines
+const showDebugFrames = true; // ← set to false to hide the outlines
 
 interface CertificateTemplateProps {
   elements?: CertificateElement[];
@@ -88,6 +87,28 @@ export default function CertificateTemplate({
       );
     }
 
+    // 🖼️ GENERIC IMAGE (Logos, Watermarks, User Uploads)
+    if (element.type === "image") {
+      const imageStyle: React.CSSProperties = {
+        ...baseStyle,
+        backgroundImage: `url(${element.imageUrl})`,
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      };
+      
+      return (
+        <div
+          key={element.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, element.id)}
+          onDrag={(e) => handleDrag(e, element)}
+          onClick={() => onElementSelect?.(element.id)}
+          style={imageStyle}
+        />
+      );
+    }
+
     // 🟦 BORDER
     if (element.type === "border") {
       const borderStyle: React.CSSProperties = {
@@ -107,35 +128,31 @@ export default function CertificateTemplate({
       return <div key={element.id} style={borderStyle} />;
     }
 
+    // 🟪 CORNER FRAME (rotated mini-panels)
+    if (element.type === "cornerFrame") {
+      const style: React.CSSProperties = {
+        ...baseStyle,
+        transform: `rotate(${element.rotate ?? 45}deg)`,
+        transformOrigin: "center",
+        backgroundColor: element.backgroundColor,
+        backgroundImage: element.imageUrl ? `url(${element.imageUrl})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        borderRadius: 0,
+        pointerEvents: "auto",
+      };
 
-
-// 🟪 CORNER FRAME (rotated mini-panels)
-if (element.type === "cornerFrame") {
-  const style: React.CSSProperties = {
-    ...baseStyle,
-    transform: `rotate(${element.rotate ?? 45}deg)`,
-    transformOrigin: "center",
-    backgroundColor: element.backgroundColor,
-    backgroundImage: element.imageUrl ? `url(${element.imageUrl})` : undefined,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    borderRadius: 0,
-    pointerEvents: "auto",
-  };
-
-  return (
-    <div
-      key={element.id}
-      draggable
-      onDragStart={(e) => handleDragStart(e, element.id)}
-      onDrag={(e) => handleDrag(e, element)}
-      onClick={() => onElementSelect?.(element.id)}
-      style={style}
-    />
-  );
-}
-
-
+      return (
+        <div
+          key={element.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, element.id)}
+          onDrag={(e) => handleDrag(e, element)}
+          onClick={() => onElementSelect?.(element.id)}
+          style={style}
+        />
+      );
+    }
 
     // ⬜ INNER FRAME (white rectangle)
     if (element.type === "innerFrame") {
@@ -185,14 +202,19 @@ if (element.type === "cornerFrame") {
         pointerEvents: "auto",
 
 
-  //FRAME OUTLINE SHOW
 
-//outline: showDebugFrames ? "1px dashed red" : "none",
-//backgroundColor: showDebugFrames ? "rgba(255,0,0,0.05)" : "transparent",
+
+ //FRAME OUTLINE SHOW
+
+
+outline: showDebugFrames ? "1px dashed red" : "none",
+backgroundColor: showDebugFrames ? "rgba(255,0,0,0.05)" : "transparent",
+
 
       };
 
-      // Defensive clamp in renderer too
+
+      
       const displayedContent = clampTextForRender(element.content, element.maxChars);
 
       return (
@@ -207,7 +229,7 @@ if (element.type === "cornerFrame") {
           {displayedContent}
         </div>
       );
-    } // --- END OF 🖋️ TEXT / SIGNATURE
+    } 
 
     return null;
   };

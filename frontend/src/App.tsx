@@ -8,11 +8,11 @@ import CertificateStudio from "./pages/app/CertificateStudio";
 import HomeDashboard from "./pages/app/HomeDashboard";
 import AIGenerate from "./pages/app/AIGenerate";
 import CertificateEditor from "./pages/app/CertificateEditor";
-import TemplateLibrary from "./pages/app/TemplateLibrary";
+//import TemplateLibrary from "./pages/app/TemplateLibrary";
 import CustomTemplateHub from "./pages/app/CustomTemplateHub";
 import BrandKit from "./pages/app/BrandKit";
+import GeneratedTemplates from "./pages/app/GeneratedTemplates";
 import MyCertificates from "./pages/app/MyCertificates";
-import Favorites from "./pages/app/Favorites";
 import Settings from "./pages/app/Settings";
 import ResetPassword from "./pages/public/ResetPassword";
 
@@ -58,11 +58,11 @@ function App() {
               <Route path="home-dashboard" element={<HomeDashboard />} />
               <Route path="ai-generate" element={<AIGenerate />} />
               <Route path="certificate-editor" element={<CertificateEditor />} />
-              <Route path="template-library" element={<TemplateLibrary />} />
+
               <Route path="custom-template" element={<CustomTemplateHub />} />
               <Route path="brand-kit" element={<BrandKit />} />
+              <Route path="generated-templates" element={<GeneratedTemplates />} />
               <Route path="my-certificates" element={<MyCertificates />} />
-              <Route path="favorites" element={<Favorites />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Route>

@@ -59,10 +59,13 @@ const TEXT_FRAME_CONFIG: Record<
     maxChars: number;
   }
 > = {
-  inst: { portrait: { width: 550, height: 20 }, landscape: { width: 700, height: 20 }, maxChars: 120 },
-  dept: { portrait: { width: 550, height: 20 }, landscape: { width: 700, height: 20 }, maxChars: 120 },
-  loc:  { portrait: { width: 550, height: 20 }, landscape: { width: 700, height: 20 }, maxChars: 120 },
 
+  //head texts frame
+  inst: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
+  dept: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
+  loc:  { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
+ 
+  //body texts frame
   opening: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 50 },
   title:   { portrait: { width: 600, height: 100 }, landscape: { width: 850, height: 60 }, maxChars: 80 },
 

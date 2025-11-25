@@ -1,7 +1,9 @@
 import {
-  Home,
+  //Activity,
+  BarChart,
+  //Home
   Sparkles,
- // Library,
+  Library,
   FileText,
   Palette,
   //Heart,
@@ -9,7 +11,7 @@ import {
   Award,
   ChevronLeft,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import certigenLogo from "../assets/certigen_logo.png";
 import { useAuth } from "@/context/AuthContext";
@@ -41,12 +43,15 @@ function Sidebar({
 
   const menuItems = [
     { id: "ai-generate", label: "AI Generate", icon: Sparkles },
-    { id: "home-dashboard", label: "Home", icon: Home },
+    { id: "home-dashboard", label: "My Activity", icon: BarChart },
 //    { id: "template-library", label: "Template Library", icon: Library },
     { id: "custom-template", label: "Custom Template Hub", icon: FileText },
-    { id: "brand-kit", label: "Brand Kit", icon: Palette },
+    
+    { id: "generated-templates", label: "Generated Templates", icon: Library },
+
+    
     { id: "my-certificates", label: "My Certificates", icon: Award },
-   // { id: "favorites", label: "Favorites", icon: Heart },
+    { id: "brand-kit", label: "Brand Kit", icon: Palette },
     { id: "settings", label: "Settings", icon: SettingsIcon },
   ];
 

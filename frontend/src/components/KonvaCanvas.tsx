@@ -286,12 +286,21 @@ export default function KonvaCanvas({
             }
 
             if (["text", "signature"].includes(el.type)) {
-              const textAlign =
-                el.textAlign === "center" ? "center" : el.textAlign === "right" ? "right" : "left";
+              
+              // 1. Determine alignment, forcing 'center' for signature elements
+              const effectiveAlign = el.type === "signature" 
+                ? "center" 
+                : el.textAlign === "center" ? "center" : el.textAlign === "right" ? "right" : "left";
+
               const elementWidth = el.width ?? 200;
               let xPos = el.x;
-              if (textAlign === "center") xPos = el.x - elementWidth / 2;
-              else if (textAlign === "right") xPos = el.x - elementWidth;
+
+              // 2. Adjust X position based on effective alignment
+              if (effectiveAlign === "center") {
+                xPos = el.x - elementWidth / 2;
+              } else if (effectiveAlign === "right") {
+                xPos = el.x - elementWidth;
+              }
 
               return (
                 <Text
@@ -304,7 +313,7 @@ export default function KonvaCanvas({
                   fontFamily={el.fontFamily ?? "Arial"}
                   fill={el.color ?? "#000000"}
                   fontStyle={el.fontWeight === "bold" ? "bold" : "normal"}
-                  align={textAlign}
+                  align={effectiveAlign} // Use the new effectiveAlign variable
                   draggable
                   onClick={() => handleSelect(el.id)}
                   onTap={() => handleSelect(el.id)}
