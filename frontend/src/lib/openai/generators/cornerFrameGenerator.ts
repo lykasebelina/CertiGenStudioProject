@@ -1,3 +1,5 @@
+// src/utils/cornerFrameUtils.ts
+
 import { CertificateElement } from "../../../types/certificate";
 import { SIZE_MAP } from "../utils/sizeUtils";
 import { extractCornerFrameColors, detectCornerFrameStyle } from "../utils/cornerFrameColorUtils";
@@ -18,14 +20,35 @@ export async function generateCornerFrame(
   const style = detectCornerFrameStyle(userPrompt);
 
   // Determine corner frame size & offset
-  const cornerSize = Math.floor(Math.min(canvasSize.width, canvasSize.height) * 0.5);
-  const offset = Math.floor(cornerSize * 0.55); // outward adjustment
+  
+  // ⭐️ FIX 1: Base cornerSize on the LONGEST side (max) to ensure it fills the diagonal 
+  // and meets near the center in both orientations.
+  const baseSize = Math.max(canvasSize.width, canvasSize.height);
+  
+  // Using 0.55-0.60 multiplier for the size is typically sufficient for this look.
+  const cornerSize = Math.floor(baseSize * 0.3); 
+  
+  // ⭐️ FIX 2: Calculate a single, uniform offset value to push the anchor points 
+  // far enough outward to fully cover the absolute canvas corners.
+  // 0.20 works well with a cornerSize multiplier of 0.58.
+  const offset = Math.floor(cornerSize * 0.5); 
 
   // Define positions for four corners
   const positions: { id: Corner; x: number; y: number }[] = [
+    // Top Left (TL)
+    // Anchor X/Y is pushed negatively (outward) by offset
     { id: "tl", x: -offset, y: -offset },
+    
+    // Top Right (TR) 
+    // Anchor X is placed near the right edge (width - size) and adjusted OUTWARD (+ offset).
     { id: "tr", x: canvasSize.width - cornerSize + offset, y: -offset },
+    
+    // Bottom Left (BL) 
+    // Anchor Y is placed near the bottom edge (height - size) and adjusted OUTWARD (+ offset).
     { id: "bl", x: -offset, y: canvasSize.height - cornerSize + offset },
+    
+    // Bottom Right (BR) 
+    // Anchor X/Y are placed near the right/bottom edge and adjusted OUTWARD (+ offset).
     { id: "br", x: canvasSize.width - cornerSize + offset, y: canvasSize.height - cornerSize + offset },
   ];
 

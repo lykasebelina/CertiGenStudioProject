@@ -1,7 +1,7 @@
 // src/components/KonvaCanvas.tsx
 
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer, Line } from "react-konva";
 import Konva from "konva";
 import { CertificateElement } from "../types/certificate";
 
@@ -18,6 +18,11 @@ interface ImageElement {
   id: string;
   image: HTMLImageElement;
   element: CertificateElement;
+}
+
+interface SnapGuide {
+  points: number[];
+  orientation: 'vertical' | 'horizontal';
 }
 
 const base64Cache: Record<string, string> = {};
@@ -55,11 +60,13 @@ export default function KonvaCanvas({
 }: KonvaCanvasProps) {
   const [images, setImages] = useState<ImageElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  
+  const [guides, setGuides] = useState<SnapGuide[]>([]);
+
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const selectedShapeRef = useRef<Konva.Node | null>(null);
 
-  // Load images
   useEffect(() => {
     const loadImages = async () => {
       const imageElements = elements.filter(
@@ -108,7 +115,56 @@ export default function KonvaCanvas({
     }
   };
 
+  const SNAP_THRESHOLD = 30;
+
+  const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const stage = node.getStage();
+    if (!stage) return;
+
+    const nodeWidth = node.width() * node.scaleX();
+    const nodeHeight = node.height() * node.scaleY();
+    
+    const boxX = node.x() - node.offsetX() * node.scaleX();
+    const boxY = node.y() - node.offsetY() * node.scaleY();
+    
+    const nodeCenterX = boxX + nodeWidth / 2;
+    const nodeCenterY = boxY + nodeHeight / 2;
+
+    const stageCenterX = stage.width() / 2;
+    const stageCenterY = stage.height() / 2;
+
+    const newGuides: SnapGuide[] = [];
+    
+    let newX = node.x();
+    let newY = node.y();
+
+    if (Math.abs(nodeCenterX - stageCenterX) < SNAP_THRESHOLD) {
+      const shiftX = stageCenterX - nodeCenterX;
+      newX = node.x() + shiftX;
+      
+      newGuides.push({
+        orientation: 'vertical',
+        points: [stageCenterX, 0, stageCenterX, stage.height()]
+      });
+    }
+
+    if (Math.abs(nodeCenterY - stageCenterY) < SNAP_THRESHOLD) {
+      const shiftY = stageCenterY - nodeCenterY;
+      newY = node.y() + shiftY;
+
+      newGuides.push({
+        orientation: 'horizontal',
+        points: [0, stageCenterY, stage.width(), stageCenterY]
+      });
+    }
+
+    node.position({ x: newX, y: newY });
+    setGuides(newGuides);
+  };
+
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, elementId: string) => {
+    setGuides([]); 
     onElementUpdate?.(elementId, { x: e.target.x(), y: e.target.y() });
   };
 
@@ -164,6 +220,7 @@ export default function KonvaCanvas({
                   draggable
                   onClick={() => handleSelect(el.id)}
                   onTap={() => handleSelect(el.id)}
+                  onDragMove={handleDragMove}
                   onDragEnd={(e) => handleDragEnd(e, el.id)}
                   onTransformEnd={(e) => handleTransformEnd(e, el.id)}
                   ref={(node) => {
@@ -173,25 +230,18 @@ export default function KonvaCanvas({
               );
             }
 
-            // 🟪 CORNER FRAME (FIXED: Center Rotation & Transparent Border)
+            // 🟪 CORNER FRAME
             if (el.type === "cornerFrame") {
               const elWidth = el.width ?? 50;
               const elHeight = el.height ?? 50;
-
-              // 1. Calculate Center Offsets (Anchor Point)
               const offsetX = elWidth / 2;
               const offsetY = elHeight / 2;
-
-              // 2. Adjust Render Position
-              // Add offset to X/Y so the element visually stays where it was generated
               const renderX = el.x + offsetX;
               const renderY = el.y + offsetY;
 
               if (el.imageUrl) {
                 const imgObj = images.find((i) => i.id === el.id);
                 if (!imgObj) return null;
-                const scaleX = elWidth / imgObj.image.width;
-                const scaleY = elHeight / imgObj.image.height;
 
                 return (
                   <KonvaImage
@@ -199,24 +249,22 @@ export default function KonvaCanvas({
                     image={imgObj.image}
                     x={renderX}
                     y={renderY}
-                    offsetX={offsetX} // Rotate around center
-                    offsetY={offsetY} // Rotate around center
-                    scaleX={scaleX}
-                    scaleY={scaleY}
+                    offsetX={offsetX}
+                    offsetY={offsetY}
+                    width={elWidth} 
+                    height={elHeight} 
                     rotation={el.rotate ?? 0}
                     draggable
                     onClick={() => handleSelect(el.id)}
                     onTap={() => handleSelect(el.id)}
-                    
-                    // On Drag End: Convert back to Top-Left for DB storage
+                    onDragMove={handleDragMove}
                     onDragEnd={(e) => {
+                      setGuides([]); 
                       onElementUpdate?.(el.id, {
                         x: e.target.x() - offsetX,
                         y: e.target.y() - offsetY,
                       });
                     }}
-                    
-                    // On Transform End: Recalculate size and center offset
                     onTransformEnd={(e) => {
                       const node = e.target;
                       const sX = node.scaleX();
@@ -245,7 +293,6 @@ export default function KonvaCanvas({
                   />
                 );
               } else {
-                // Fallback Rect for Corner Frames
                 return (
                   <Rect
                     key={el.id}
@@ -256,11 +303,8 @@ export default function KonvaCanvas({
                     width={elWidth}
                     height={elHeight}
                     fill={el.backgroundColor ?? "transparent"}
-                    
-                    // 3. FIX: Remove default black border
                     stroke={el.borderColor ?? "transparent"} 
                     strokeWidth={el.borderWidth ?? 0}
-                    
                     dash={
                       el.borderStyle === "dashed"
                         ? [10, 5]
@@ -272,14 +316,14 @@ export default function KonvaCanvas({
                     draggable={el.draggable ?? false}
                     onClick={() => handleSelect(el.id)}
                     onTap={() => handleSelect(el.id)}
-                    
+                    onDragMove={handleDragMove}
                     onDragEnd={(e) => {
+                      setGuides([]); 
                       onElementUpdate?.(el.id, {
                         x: e.target.x() - offsetX,
                         y: e.target.y() - offsetY,
                       });
                     }}
-                    
                     onTransformEnd={(e) => {
                       const node = e.target;
                       const sX = node.scaleX();
@@ -330,6 +374,7 @@ export default function KonvaCanvas({
                   draggable={el.draggable ?? false}
                   onClick={() => handleSelect(el.id)}
                   onTap={() => handleSelect(el.id)}
+                  onDragMove={handleDragMove}
                   onDragEnd={(e) => handleDragEnd(e, el.id)}
                   onTransformEnd={(e) => handleTransformEnd(e, el.id)}
                   ref={(node) => {
@@ -339,7 +384,7 @@ export default function KonvaCanvas({
               );
             }
 
-            // 🖋️ TEXT and SIGNATURE
+            // 🖋️ TEXT and SIGNATURE (UPDATED: SMOOTH DRAGGING LOGIC)
             if (["text", "signature"].includes(el.type)) {
               
               const effectiveAlign = el.type === "signature" 
@@ -347,8 +392,9 @@ export default function KonvaCanvas({
                 : el.textAlign === "center" ? "center" : el.textAlign === "right" ? "right" : "left";
 
               const elementWidth = el.width ?? 200;
+              
+              // Visual X position calculation
               let xPos = el.x;
-
               if (effectiveAlign === "center") {
                 xPos = el.x - elementWidth / 2;
               } else if (effectiveAlign === "right") {
@@ -371,8 +417,57 @@ export default function KonvaCanvas({
                   draggable
                   onClick={() => handleSelect(el.id)}
                   onTap={() => handleSelect(el.id)}
-                  onDragEnd={(e) => handleDragEnd(e, el.id)}
-                  onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                  onDragMove={handleDragMove}
+                  
+                  // 1. UPDATED Drag Logic: Converts Visual Top-Left back to Storage Coordinates
+                  onDragEnd={(e) => {
+                    setGuides([]); 
+                    const visualLeft = e.target.x();
+                    const visualTop = e.target.y();
+
+                    let newStorageX = visualLeft;
+                    // If aligned center/right, calculate storage X from visual Left
+                    if (effectiveAlign === "center") {
+                      newStorageX = visualLeft + (elementWidth / 2);
+                    } else if (effectiveAlign === "right") {
+                      newStorageX = visualLeft + elementWidth;
+                    }
+
+                    onElementUpdate?.(el.id, { 
+                      x: newStorageX, 
+                      y: visualTop 
+                    });
+                  }}
+
+                  // 2. UPDATED Transform Logic: Recalculates storage X after resize
+                  onTransformEnd={(e) => {
+                    const node = e.target;
+                    const sX = node.scaleX();
+                    const sY = node.scaleY();
+                    node.scaleX(1);
+                    node.scaleY(1);
+
+                    const newWidth = Math.max(5, node.width() * sX);
+                    const newHeight = Math.max(5, node.height() * sY);
+                    
+                    const visualLeft = node.x();
+                    const visualTop = node.y();
+
+                    let newStorageX = visualLeft;
+                    if (effectiveAlign === "center") {
+                        newStorageX = visualLeft + (newWidth / 2);
+                    } else if (effectiveAlign === "right") {
+                        newStorageX = visualLeft + newWidth;
+                    }
+
+                    onElementUpdate?.(el.id, {
+                      x: newStorageX,
+                      y: visualTop,
+                      width: newWidth,
+                      height: newHeight,
+                      rotation: node.rotation(),
+                    });
+                  }}
                   ref={(node) => {
                     if (isSelected) selectedShapeRef.current = node;
                   }}
@@ -382,6 +477,16 @@ export default function KonvaCanvas({
 
             return null;
           })}
+
+          {guides.map((guide, i) => (
+            <Line
+              key={i}
+              points={guide.points}
+              stroke="#ff00ff"
+              strokeWidth={1}
+              dash={[4, 4]}
+            />
+          ))}
 
           {selectedId && (
             <Transformer

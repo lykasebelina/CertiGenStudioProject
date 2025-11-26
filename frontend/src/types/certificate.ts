@@ -43,10 +43,8 @@ export interface CertificateElement {
   textTransform?: "uppercase" | "capitalize" | "none";
   wrap?: "word" | "char" | "none";
 
-  // 👇 ADD THIS LINE 👇
   textDecoration?: string; 
-  // 👆 This allows values like "underline" or "line-through"
-
+  
   textFrameWidth?: number;     // Fixed text frame width
   textFrameHeight?: number;    // Fixed text frame height
   maxChars?: number;           // Maximum characters allowed
@@ -96,6 +94,12 @@ export type CertificateSize =
   | "legal-portrait"
   | "legal-landscape";
 
+// ⭐️ NEW: Interface for a single generated bulk certificate
+export interface GeneratedCertificate {
+  name: string;
+  elements: CertificateElement[];
+}
+
 export interface CertificateData {
   id: string;
   name: string;
@@ -108,6 +112,8 @@ export interface CertificateData {
   elements: CertificateElement[];
   createdAt: Date;
   prompt?: string;
+  // ⭐️ CRITICAL ADDITION: Field to hold the bulk exports
+  generated_instances?: GeneratedCertificate[] | null; 
 }
 
 export interface AIPrompt {
