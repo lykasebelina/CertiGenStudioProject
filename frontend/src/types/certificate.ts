@@ -43,6 +43,10 @@ export interface CertificateElement {
   textTransform?: "uppercase" | "capitalize" | "none";
   wrap?: "word" | "char" | "none";
 
+  // 👇 ADD THIS LINE 👇
+  textDecoration?: string; 
+  // 👆 This allows values like "underline" or "line-through"
+
   textFrameWidth?: number;     // Fixed text frame width
   textFrameHeight?: number;    // Fixed text frame height
   maxChars?: number;           // Maximum characters allowed

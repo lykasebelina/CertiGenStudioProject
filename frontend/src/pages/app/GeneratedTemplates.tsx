@@ -1,4 +1,4 @@
-// src/pages/MyCertificates.tsx
+// src/pages/GeneratedTemplates.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";

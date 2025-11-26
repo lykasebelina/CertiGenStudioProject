@@ -55,6 +55,7 @@ function App() {
           {/* 🔒 Private Routes */}
           <Route path="/app" element={<PrivateLayout />}>
             <Route path="studio" element={<CertificateStudio />}>
+            
               <Route path="home-dashboard" element={<HomeDashboard />} />
               <Route path="ai-generate" element={<AIGenerate />} />
               <Route path="certificate-editor" element={<CertificateEditor />} />

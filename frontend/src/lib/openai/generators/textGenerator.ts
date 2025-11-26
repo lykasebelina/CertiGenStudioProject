@@ -61,9 +61,9 @@ const TEXT_FRAME_CONFIG: Record<
 > = {
 
   //head texts frame
-  inst: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
-  dept: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
-  loc:  { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 120 },
+  inst: { portrait: { width: 550, height: 20 }, landscape: { width: 450, height: 20 }, maxChars: 120 },
+  dept: { portrait: { width: 550, height: 20 }, landscape: { width: 450, height: 20 }, maxChars: 120 },
+  loc:  { portrait: { width: 550, height: 20 }, landscape: { width: 450, height: 20 }, maxChars: 120 },
  
   //body texts frame
   opening: { portrait: { width: 550, height: 20 }, landscape: { width: 500, height: 20 }, maxChars: 50 },

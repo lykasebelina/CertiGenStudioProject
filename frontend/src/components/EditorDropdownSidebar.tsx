@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Sparkles, Wand2, Users, Type, Image, Palette } from "lucide-react";
+// src/components/EditorDropdownSidebar.tsx
+
+import React, { useEffect, useRef } from "react";
+// ADDED ListPlus, REMOVED Users
+import { Sparkles, Wand2, ListPlus, Type, Image, Palette } from "lucide-react";
 
 interface SidebarItem {
   id: string;
@@ -9,55 +12,84 @@ interface SidebarItem {
 
 interface EditorDropdownSidebarProps {
   onWidthChange?: (width: number) => void;
+  // NEW PROP: Function to handle the uploaded file
+  onAutoBulkUpload: (file: File) => void; 
 }
 
-const EditorDropdownSidebar: React.FC<EditorDropdownSidebarProps> = ({ onWidthChange }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+// Define the permanent width of the sidebar
+const SIDEBAR_WIDTH = 80; 
 
+const EditorDropdownSidebar: React.FC<EditorDropdownSidebarProps> = ({ onWidthChange, onAutoBulkUpload }) => {
+  
+  // NEW REF: To access the hidden file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const sidebarItems: SidebarItem[] = [
-    { id: "ai-autofill", icon: <Sparkles size={15} />, label: "AI Autofill" },
-    { id: "ai-design", icon: <Wand2 size={18} />, label: "AI Design" },
-    { id: "icons", icon: <Users size={18} />, label: "Icons" },
-    { id: "text", icon: <Type size={18} />, label: "Text" },
-    { id: "image", icon: <Image size={18} />, label: "Image" },
-    { id: "brand-kit", icon: <Palette size={18} />, label: "Brand Kit" },
+    { id: "ai-autofill", icon: <Sparkles size={20} />, label: "AI Autofill" },
+    { id: "ai-design", icon: <Wand2 size={20} />, label: "AI Design" },
+    { id: "auto-bulk", icon: <ListPlus size={20} />, label: "Auto Bulk" },
+    { id: "text", icon: <Type size={20} />, label: "Text" },
+    { id: "image", icon: <Image size={20} />, label: "Image" },
+    { id: "brand-kit", icon: <Palette size={20} />, label: "Brand Kit" },
   ];
 
-  const toggleMenu = () => setIsMenuOpen((prev) => !prev);
+  // NEW HANDLER: Triggers the hidden file input
+  const handleBulkClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // NEW HANDLER: Captures the uploaded file and passes it up
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onAutoBulkUpload(file);
+    }
+    // Reset the input value so the same file can be uploaded again if needed
+    if (fileInputRef.current) {
+        fileInputRef.current.value = ""; 
+    }
+  };
 
   useEffect(() => {
     if (onWidthChange) {
-      onWidthChange(isMenuOpen ? 120 : 0);
+      onWidthChange(SIDEBAR_WIDTH); 
     }
-  }, [isMenuOpen, onWidthChange]);
+  }, [onWidthChange]);
 
   return (
-    <div className="fixed top-[88px] right-[calc(1.5rem+var(--scrollbar-width,16px))] z-50 flex flex-col items-center pointer-events-none">
-      <div className="relative flex flex-col items-center pointer-events-auto">
-        <button
-          onClick={toggleMenu}
-          className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center transition-all shadow-xl hover:scale-110 hover:shadow-blue-500/50"
-        >
-          <Sparkles size={22} />
-        </button>
+    <div 
+      className="fixed top-20 bottom-20 right-0 z-50 flex flex-col items-center bg-slate-900 border-l border-slate-700 shadow-2xl transition-all duration-300"
+      style={{ width: `${SIDEBAR_WIDTH}px` }}
+    >
+      <div className="flex flex-col items-center w-full h-full p-1 overflow-y-auto"> 
+        
+        {/* HIDDEN FILE INPUT for Bulk Upload */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          accept=".xlsx, .xls, .csv" // Accept common spreadsheet formats
+          onChange={handleFileChange}
+        />
 
-        {isMenuOpen && (
-          <div className="absolute left-1/2 -translate-x-1/2 top-14 bg-gradient-to-b from-blue-600 via-blue-700 to-purple-700 rounded-2xl shadow-xl overflow-hidden w-28 animate-in fade-in slide-in-from-top-2 duration-200">
-            {sidebarItems.map((item, index) => (
-              <button
-                key={item.id}
-                className={`w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 text-white hover:bg-white/10 transition ${
-                  index !== sidebarItems.length - 1 ? "border-b border-white/20" : ""
-                }`}
-              >
-                <div className="flex items-center justify-center">{item.icon}</div>
-                <span className="text-[10px] font-medium text-center leading-tight">
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        {sidebarItems.map((item) => (
+          <button
+            key={item.id}
+            // Use handleBulkClick for the Auto Bulk button
+            onClick={item.id === 'auto-bulk' ? handleBulkClick : undefined}
+            className={`w-full flex flex-col items-center justify-center gap-1.5 px-0.5 py-3 my-1 rounded-lg text-white transition hover:bg-slate-700/70 border-b border-slate-700 last:border-b-0`}
+            title={item.label}
+          >
+            <div className="flex items-center justify-center text-cyan-400">
+              {item.icon}
+            </div>
+            <span className="text-[10px] font-medium text-center leading-tight text-slate-300">
+              {item.label}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );

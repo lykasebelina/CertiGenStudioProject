@@ -1,7 +1,9 @@
+// src/components/KonvaCanvas.tsx
+
 import { useEffect, useRef, useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer } from "react-konva";
 import Konva from "konva";
-import { CertificateElement, CornerFrameMetadata } from "../types/certificate";
+import { CertificateElement } from "../types/certificate";
 
 interface KonvaCanvasProps {
   width: number;
@@ -128,22 +130,6 @@ export default function KonvaCanvas({
 
   const sortedElements = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
 
-  const getCornerPosition = (meta: CornerFrameMetadata, elWidth: number, elHeight: number) => {
-    // Align precisely with stage edges
-    switch (meta.corner) {
-      case "tl":
-        return { x: 0, y: 0 };
-      case "tr":
-        return { x: width - elWidth, y: 0 };
-      case "bl":
-        return { x: 0, y: height - elHeight };
-      case "br":
-        return { x: width - elWidth, y: height - elHeight };
-      default:
-        return { x: 0, y: 0 };
-    }
-  };
-
   return (
     <div className="shadow-lg border border-slate-300">
       <Stage
@@ -158,6 +144,7 @@ export default function KonvaCanvas({
           {sortedElements.map((el) => {
             const isSelected = selectedId === el.id;
 
+            // 🖼️ IMAGE and BACKGROUND
             if (["image", "background"].includes(el.type)) {
               const imgObj = images.find((i) => i.id === el.id);
               if (!imgObj) return null;
@@ -186,17 +173,19 @@ export default function KonvaCanvas({
               );
             }
 
+            // 🟪 CORNER FRAME (FIXED: Center Rotation & Transparent Border)
             if (el.type === "cornerFrame") {
               const elWidth = el.width ?? 50;
               const elHeight = el.height ?? 50;
-              let x = el.x;
-              let y = el.y;
 
-              if (el.metadata?.isCornerFrame) {
-                const pos = getCornerPosition(el.metadata, elWidth, elHeight);
-                x = pos.x;
-                y = pos.y;
-              }
+              // 1. Calculate Center Offsets (Anchor Point)
+              const offsetX = elWidth / 2;
+              const offsetY = elHeight / 2;
+
+              // 2. Adjust Render Position
+              // Add offset to X/Y so the element visually stays where it was generated
+              const renderX = el.x + offsetX;
+              const renderY = el.y + offsetY;
 
               if (el.imageUrl) {
                 const imgObj = images.find((i) => i.id === el.id);
@@ -208,32 +197,70 @@ export default function KonvaCanvas({
                   <KonvaImage
                     key={el.id}
                     image={imgObj.image}
-                    x={x}
-                    y={y}
+                    x={renderX}
+                    y={renderY}
+                    offsetX={offsetX} // Rotate around center
+                    offsetY={offsetY} // Rotate around center
                     scaleX={scaleX}
                     scaleY={scaleY}
                     rotation={el.rotate ?? 0}
                     draggable
                     onClick={() => handleSelect(el.id)}
                     onTap={() => handleSelect(el.id)}
-                    onDragEnd={(e) => handleDragEnd(e, el.id)}
-                    onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                    
+                    // On Drag End: Convert back to Top-Left for DB storage
+                    onDragEnd={(e) => {
+                      onElementUpdate?.(el.id, {
+                        x: e.target.x() - offsetX,
+                        y: e.target.y() - offsetY,
+                      });
+                    }}
+                    
+                    // On Transform End: Recalculate size and center offset
+                    onTransformEnd={(e) => {
+                      const node = e.target;
+                      const sX = node.scaleX();
+                      const sY = node.scaleY();
+                      
+                      node.scaleX(1);
+                      node.scaleY(1);
+
+                      const newWidth = Math.max(5, node.width() * sX);
+                      const newHeight = Math.max(5, node.height() * sY);
+                      
+                      const newOffsetX = newWidth / 2;
+                      const newOffsetY = newHeight / 2;
+
+                      onElementUpdate?.(el.id, {
+                        x: node.x() - newOffsetX,
+                        y: node.y() - newOffsetY,
+                        width: newWidth,
+                        height: newHeight,
+                        rotation: node.rotation(),
+                      });
+                    }}
                     ref={(node) => {
                       if (isSelected) selectedShapeRef.current = node;
                     }}
                   />
                 );
               } else {
+                // Fallback Rect for Corner Frames
                 return (
                   <Rect
                     key={el.id}
-                    x={x}
-                    y={y}
+                    x={renderX}
+                    y={renderY}
+                    offsetX={offsetX}
+                    offsetY={offsetY}
                     width={elWidth}
                     height={elHeight}
                     fill={el.backgroundColor ?? "transparent"}
-                    stroke={el.borderColor ?? "#000"}
-                    strokeWidth={el.borderWidth ?? 2}
+                    
+                    // 3. FIX: Remove default black border
+                    stroke={el.borderColor ?? "transparent"} 
+                    strokeWidth={el.borderWidth ?? 0}
+                    
                     dash={
                       el.borderStyle === "dashed"
                         ? [10, 5]
@@ -245,8 +272,34 @@ export default function KonvaCanvas({
                     draggable={el.draggable ?? false}
                     onClick={() => handleSelect(el.id)}
                     onTap={() => handleSelect(el.id)}
-                    onDragEnd={(e) => handleDragEnd(e, el.id)}
-                    onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                    
+                    onDragEnd={(e) => {
+                      onElementUpdate?.(el.id, {
+                        x: e.target.x() - offsetX,
+                        y: e.target.y() - offsetY,
+                      });
+                    }}
+                    
+                    onTransformEnd={(e) => {
+                      const node = e.target;
+                      const sX = node.scaleX();
+                      const sY = node.scaleY();
+                      node.scaleX(1);
+                      node.scaleY(1);
+
+                      const newWidth = Math.max(5, node.width() * sX);
+                      const newHeight = Math.max(5, node.height() * sY);
+                      const newOffsetX = newWidth / 2;
+                      const newOffsetY = newHeight / 2;
+
+                      onElementUpdate?.(el.id, {
+                        x: node.x() - newOffsetX,
+                        y: node.y() - newOffsetY,
+                        width: newWidth,
+                        height: newHeight,
+                        rotation: node.rotation(),
+                      });
+                    }}
                     ref={(node) => {
                       if (isSelected) selectedShapeRef.current = node;
                     }}
@@ -255,6 +308,7 @@ export default function KonvaCanvas({
               }
             }
 
+            // 🟦 BORDER and INNER FRAME
             if (["border", "innerFrame"].includes(el.type)) {
               return (
                 <Rect
@@ -285,9 +339,9 @@ export default function KonvaCanvas({
               );
             }
 
+            // 🖋️ TEXT and SIGNATURE
             if (["text", "signature"].includes(el.type)) {
               
-              // 1. Determine alignment, forcing 'center' for signature elements
               const effectiveAlign = el.type === "signature" 
                 ? "center" 
                 : el.textAlign === "center" ? "center" : el.textAlign === "right" ? "right" : "left";
@@ -295,7 +349,6 @@ export default function KonvaCanvas({
               const elementWidth = el.width ?? 200;
               let xPos = el.x;
 
-              // 2. Adjust X position based on effective alignment
               if (effectiveAlign === "center") {
                 xPos = el.x - elementWidth / 2;
               } else if (effectiveAlign === "right") {
@@ -313,7 +366,8 @@ export default function KonvaCanvas({
                   fontFamily={el.fontFamily ?? "Arial"}
                   fill={el.color ?? "#000000"}
                   fontStyle={el.fontWeight === "bold" ? "bold" : "normal"}
-                  align={effectiveAlign} // Use the new effectiveAlign variable
+                  textDecoration={el.textDecoration ?? ""}
+                  align={effectiveAlign}
                   draggable
                   onClick={() => handleSelect(el.id)}
                   onTap={() => handleSelect(el.id)}

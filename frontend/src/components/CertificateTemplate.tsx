@@ -1,6 +1,6 @@
 import { CertificateElement } from "../types/certificate";
 
-const showDebugFrames = true; // ← set to false to hide the outlines
+//const showDebugFrames = true; // ← set to false to hide the outlines
 
 interface CertificateTemplateProps {
   elements?: CertificateElement[];
@@ -207,8 +207,8 @@ export default function CertificateTemplate({
  //FRAME OUTLINE SHOW
 
 
-outline: showDebugFrames ? "1px dashed red" : "none",
-backgroundColor: showDebugFrames ? "rgba(255,0,0,0.05)" : "transparent",
+//outline: showDebugFrames ? "1px dashed red" : "none",
+//backgroundColor: showDebugFrames ? "rgba(255,0,0,0.05)" : "transparent",
 
 
       };

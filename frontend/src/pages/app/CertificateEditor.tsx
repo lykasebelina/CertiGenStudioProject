@@ -13,6 +13,9 @@ import EditorBottomBar from "../../components/EditorBottomBar";
 import EditorDropdownSidebar from "../../components/EditorDropdownSidebar";
 import KonvaCanvas from "../../components/KonvaCanvas";
 
+// NEW IMPORT: Spreadsheet library (Must be installed: npm install xlsx)
+import * as XLSX from 'xlsx'; 
+
 const CertificateEditor: React.FC = () => {
   const navigate = useNavigate();
   const { currentCertificate, setCurrentCertificate } = useCertificate();
@@ -25,6 +28,8 @@ const CertificateEditor: React.FC = () => {
   // Loading states
   const [loadingImages, setLoadingImages] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  // NEW STATE: To prevent multiple bulk uploads simultaneously
+  const [isBulkProcessing, setIsBulkProcessing] = useState<boolean>(false); 
 
   const handleElementSelect = useCallback((id: string | null) => {
     setSelectedElement(id);
@@ -151,7 +156,7 @@ const CertificateEditor: React.FC = () => {
           const imgHeight = currentCertificate.height;
 
           // Determine orientation based on certificate size
-          const orientation = imgWidth > imgHeight ? 'l' : 'p';
+          const orientation = imgWidth > imgWidth ? 'l' : 'p';
           
           // Create PDF instance (units in points (pt), default A4 size)
           const pdf = new jsPDF(orientation, 'pt', 'a4'); 
@@ -191,6 +196,101 @@ const CertificateEditor: React.FC = () => {
     }
   };
 
+
+  // --- NEW HANDLER: Bulk Generation Logic ---
+  const handleAutoBulkUpload = async (file: File) => {
+    if (!currentCertificate || isBulkProcessing) {
+      alert("Please ensure a certificate template is loaded or wait for current process to finish.");
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    let names: string[] = [];
+
+    // 1. Find the name placeholder element
+    // Assuming the name placeholder is the text element with content "Alex Plainwhite"
+    const PLACEHOLDER_TEXT = "Alex Plainwhite";
+    const placeholderElement = currentCertificate.elements.find(
+      el => el.content === PLACEHOLDER_TEXT && el.type === "text"
+    );
+
+    if (!placeholderElement) {
+      alert(`Could not find the name placeholder element (content: "${PLACEHOLDER_TEXT}") in the template.`);
+      setIsBulkProcessing(false);
+      return;
+    }
+    
+    try {
+        // 2. Read the file
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Assume the first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert sheet data to JSON array (assuming header row exists)
+        // Set header: 1 to get array of arrays (easier for simple column access)
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Assuming names are in the first column (index 0), skipping header row (index 0)
+        // Filter out non-string/empty values
+        names = json.slice(1).map(row => row[0])
+                    .filter(name => typeof name === 'string' && name.trim() !== '');
+
+    } catch (error) {
+        console.error("Error reading file:", error);
+        alert("Failed to read the spreadsheet file. Ensure it's a valid Excel/CSV file.");
+        setIsBulkProcessing(false);
+        return;
+    }
+
+    if (names.length === 0) {
+        alert("No names found in the first column of the spreadsheet after the header row.");
+        setIsBulkProcessing(false);
+        return;
+    }
+
+    // 3. Prepare the new certificate data structure
+    
+    // Filter out the original placeholder element
+    const templateElements = currentCertificate.elements.filter(el => el.id !== placeholderElement.id);
+    
+    let processedCount = 0;
+    
+    // In a real application, you would iterate and send this data to a server API to save 
+    // new certificates to the database.
+    names.forEach((name) => {
+        // Create a deep copy of the template elements
+        const newElements: CertificateElement[] = JSON.parse(JSON.stringify(templateElements));
+        
+        // Create the new name element based on the placeholder template
+        const newNameElement: CertificateElement = {
+            ...placeholderElement,
+            id: `name-${Date.now()}-${processedCount}`, // Ensure unique ID
+            content: name, // Insert the new name
+        };
+        
+        const finalElements = [...newElements, newNameElement];
+        
+        // --- TEMPORARY ACTION FOR DEMONSTRATION: Update current view to the last generated name ---
+        // You would typically save this 'finalElements' list as a new certificate in the database.
+        
+        if (processedCount === names.length - 1) {
+             setCurrentCertificate({
+                ...currentCertificate,
+                elements: finalElements,
+                name: `${currentCertificate.name || 'Certificate'} - ${name} (Last Processed)`
+             });
+        }
+        processedCount++;
+    });
+
+    alert(`${processedCount} certificates processed! The last generated name has been loaded into the editor.`);
+
+    setIsBulkProcessing(false);
+  };
+  
   if (!currentCertificate) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-slate-300">
@@ -217,13 +317,25 @@ const CertificateEditor: React.FC = () => {
         onDeleteElement={handleDeleteElement}
         onSave={handleSaveCertificate}
         onDownload={handleDownload} // Uses the updated handler
-        isSaving={isSaving}
+        isSaving={isSaving || isBulkProcessing}
       />
+      {/* Show processing state if bulk uploading */}
+      {isBulkProcessing && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-[60] text-white text-xl font-bold">
+            Processing bulk certificates...
+          </div>
+      )}
+
 
       <div
         id="certificate-container"
         className="flex-1 overflow-auto bg-slate-900 flex justify-center items-start transition-all duration-300 p-10"
-        style={{ marginRight: `${rightSidebarWidth}px` }}
+        style={{ 
+          marginRight: `${rightSidebarWidth}px`,
+          // --- FIX: Invisible Scrollbar CSS Properties ---
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none',
+        }}
       >
         <div
           style={{
@@ -255,7 +367,11 @@ const CertificateEditor: React.FC = () => {
       </div>
 
       <EditorBottomBar zoom={zoom} setZoom={setZoom} />
-      <EditorDropdownSidebar onWidthChange={setRightSidebarWidth} />
+      {/* PASS THE NEW HANDLER */}
+      <EditorDropdownSidebar 
+        onWidthChange={setRightSidebarWidth} 
+        onAutoBulkUpload={handleAutoBulkUpload}
+      />
     </div>
   );
 };

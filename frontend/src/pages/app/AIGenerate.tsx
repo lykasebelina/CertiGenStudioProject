@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Lightbulb, Palette, Plus, Layout, Sparkles, X, Upload, Image as ImageIcon, FileSignature } from "lucide-react";
 import CertificatePreview from "../../components/CertificatePreview";
 import { useCertificate } from "../../context/CertificateContext";
@@ -19,10 +19,10 @@ type CertificateSize =
 
 interface Position { x: number; y: number; }
 
-// --- HELPER: Get Dimensions for Positioning (Using Context-defined pixel values) ---
+
 const getDimensions = (size: CertificateSize) => {
   switch (size) {
-    // NOTE: Using 1248px for Legal from the previous fix.
+
     case "a4-landscape": return { width: 1123, height: 794 };
     case "a4-portrait": return { width: 794, height: 1123 };
     case "legal-landscape": return { width: 1248, height: 816 };
@@ -33,15 +33,19 @@ const getDimensions = (size: CertificateSize) => {
   }
 };
 
-// ⭐️ UPDATED HELPER: Calculate Logo Positions (Now uses fixed gap spacing) ⭐️
+/**
+ * Calculates the X, Y positions for the logos based on the certificate size and count.
+ * Includes updated logic for centering two logos on the left side in Landscape mode,
+ * and fixes ESLint warnings by using 'const' for variables that are not reassigned.
+ */
 const getLogoPositions = (
-  size: CertificateSize, // NEW: Pass size
+  size: CertificateSize, 
   width: number, 
   height: number, 
   count: number, 
   logoSize: number, 
   margin: number,
-  elements: CertificateElement[] // NEW: Pass elements list
+  elements: CertificateElement[] 
 ): Position[] => {
   const positions: Position[] = [];
   const isPortrait = size.includes("portrait");
@@ -55,7 +59,10 @@ const getLogoPositions = (
   let areaWidth = width - (2 * margin);
   let yPos = margin; // Fallback top margin
 
-  // Use the head text frame's dimensions for positioning in Portrait mode 
+  // CONFIGURATION: Define vertical adjustment for all logos (Positive = DOWN, Negative = UP)
+  const verticalLogoShift = 10; 
+
+  // --- PORTRAIT MODE LOGIC (Center Alignment) ---
   if (isPortrait && referenceFrame && referenceFrame.textFrameWidth) {
     areaWidth = referenceFrame.textFrameWidth;
     areaX = referenceFrame.x || (width / 2) - (areaWidth / 2); // Use frame's X or recalculate center
@@ -66,54 +73,133 @@ const getLogoPositions = (
     if (yPos < margin) {
         yPos = margin;
     }
-  } else {
-    yPos = margin;
-    // Area X and Width remain full certificate width less margins
-  }
-  
-  // ⭐️ CONFIGURATION: Define a fixed gap size you want between logos (Adjust this value) ⭐️
-  const LOGO_GAP_SPACING = 10; 
-  
-  // --- Positioning Logic within the Defined Area ---
-  if (count === 1) {
-    // Centered within the defined area
-    positions.push({ x: areaX + (areaWidth / 2) - (logoSize / 2), y: yPos });
-
-  } else if (count === 2) {
-    // Calculate new total width for 2 logos + 1 gap
-    const totalContentWidth = (2 * logoSize) + LOGO_GAP_SPACING;
-    const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+    yPos += verticalLogoShift;
     
-    positions.push({ x: startX, y: yPos });
-    positions.push({ x: startX + logoSize + LOGO_GAP_SPACING, y: yPos });
-
-  } else if (count === 3) {
-    // Calculate new total width for 3 logos + 2 gaps
-    const totalContentWidth = (3 * logoSize) + (2 * LOGO_GAP_SPACING);
-    const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+    // CONFIGURATION: Define a fixed gap size you want between logos (Adjust this value)
+    const LOGO_GAP_SPACING = 10; 
     
-    positions.push({ x: startX, y: yPos });
-    positions.push({ x: startX + logoSize + LOGO_GAP_SPACING, y: yPos });
-    positions.push({ x: startX + (2 * (logoSize + LOGO_GAP_SPACING)), y: yPos });
-
-  } else if (count === 4) {
-    // Calculate new total width for 4 logos + 3 gaps
-    const totalContentWidth = (4 * logoSize) + (3 * LOGO_GAP_SPACING);
-    const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+    // --- Portrait Positioning ---
+    if (count === 1) {
+      // NOTE: Horizontal shift will be applied later in handleGenerate
+      positions.push({ x: areaX + (areaWidth / 2) - (logoSize / 2), y: yPos });
+    } else if (count === 2) {
+      const totalContentWidth = (2 * logoSize) + LOGO_GAP_SPACING;
+      const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+      positions.push({ x: startX, y: yPos });
+      positions.push({ x: startX + logoSize + LOGO_GAP_SPACING, y: yPos });
+    } else if (count === 3) {
+      const totalContentWidth = (3 * logoSize) + (2 * LOGO_GAP_SPACING);
+      const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+      positions.push({ x: startX, y: yPos });
+      positions.push({ x: startX + logoSize + LOGO_GAP_SPACING, y: yPos });
+      positions.push({ x: startX + (2 * (logoSize + LOGO_GAP_SPACING)), y: yPos });
+    } else if (count === 4) {
+      const totalContentWidth = (4 * logoSize) + (3 * LOGO_GAP_SPACING);
+      const startX = areaX + (areaWidth / 2) - (totalContentWidth / 2);
+      let currentX = startX;
+      for (let i = 0; i < 4; i++) {
+        positions.push({ x: currentX, y: yPos });
+        currentX += logoSize + LOGO_GAP_SPACING;
+      }
+    }
+  } 
+  // --- LANDSCAPE MODE LOGIC (Left/Right Alignment on Text Frame EdGES) ---
+  else {
     
-    let currentX = startX;
+    // ⭐️ ADJUSTMENT POINT 1: Define Landscape Horizontal Shift (Controls entire group's X offset) ⭐️
+    const LANDSCAPE_LOGO_HORIZONTAL_SHIFT = -265; 
 
-    for (let i = 0; i < 4; i++) {
-      positions.push({ x: currentX, y: yPos });
-      currentX += logoSize + LOGO_GAP_SPACING;
+    // ⭐️ ADJUSTMENT POINT 2: Define Landscape Vertical Shift ⭐️
+    const LANDSCAPE_LOGO_VERTICAL_SHIFT = 62; 
+
+    // ⭐️ ADJUSTMENT POINT 3: Define Right Logo Inset (Controls gap between text and right logos) ⭐️
+    const RIGHT_LOGO_INSET = -75; 
+
+
+    // Reference frame geometry for landscape
+    let refX = referenceFrame?.x || margin;
+    const refWidth = referenceFrame?.width || (width - 2 * margin);
+    
+    // Apply the horizontal shift to the reference point (affects leftStart)
+    refX += LANDSCAPE_LOGO_HORIZONTAL_SHIFT;
+
+    // leftStart remains the anchor for the left group
+    const leftStart = refX; // <-- Changed to const
+    
+    // Calculate the start position for the right group.
+    const rightGroupStart = refX + refWidth - (logoSize + RIGHT_LOGO_INSET); 
+    
+    // Vertical position calculation
+    const textFrameY = referenceFrame?.y || margin * 2;
+    const LOGO_VERTICAL_OFFSET = 0;
+    
+    // Apply initial positioning based on the text frame and vertical shift
+    yPos = textFrameY - logoSize - LOGO_VERTICAL_OFFSET;
+    yPos += LANDSCAPE_LOGO_VERTICAL_SHIFT; 
+
+    if (yPos < margin) {
+        yPos = margin;
+    }
+    
+    // Spacing between multiple logos on one side
+    const INNER_GAP = 5; 
+
+    // --- Landscape Positioning ---
+    switch (count) {
+      case 1:
+        // 1 Logo: Place on the Left Side (No shift needed)
+        positions.push({ x: leftStart, y: yPos });
+        break;
+
+      case 2:
+        // 2 Logos: Left and Right Sides (Single logo on each side)
+        positions.push({ x: leftStart, y: yPos }); // Left
+        positions.push({ x: rightGroupStart, y: yPos }); // Right
+        break;
+
+      case 3:
+        // 3 Logos: 2 Left, 1 Right
+        
+        // ⭐️ UPDATED LEFT SIDE LOGIC: Shift left to center the group ⭐️
+        {
+          const leftGroupWidth = (2 * logoSize) + INNER_GAP;
+          const leftShift = leftGroupWidth / 2;
+          
+          const currentX = leftStart - leftShift; // <-- Changed to const
+
+          // Left side (2 logos - Logo 1 then Logo 2 to the right)
+          positions.push({ x: currentX, y: yPos });
+          positions.push({ x: currentX + logoSize + INNER_GAP, y: yPos });
+        }
+
+        // Right side (1 logo)
+        positions.push({ x: rightGroupStart, y: yPos });
+        break;
+
+      case 4:
+        // 4 Logos: 2 Left, 2 Right
+        
+        // ⭐️ UPDATED LEFT SIDE LOGIC: Shift left to center the group ⭐️
+        {
+          const leftGroupWidth = (2 * logoSize) + INNER_GAP;
+          const leftShift = leftGroupWidth / 2;
+
+          const currentX = leftStart - leftShift; // <-- Changed to const
+          
+          // Left side (2 logos - Logo 1 then Logo 2 to the right)
+          positions.push({ x: currentX, y: yPos });
+          positions.push({ x: currentX + logoSize + INNER_GAP, y: yPos });
+        }
+        
+        // Right side (2 logos - Logo 3 then Logo 4 to the right) 
+        positions.push({ x: rightGroupStart, y: yPos }); 
+        positions.push({ x: rightGroupStart + logoSize + INNER_GAP, y: yPos });
+        break;
     }
   }
 
   return positions.slice(0, count);
 };
-
-
-// --- HELPER: Calculate Signature Positions (DELETED - LOGIC MOVED TO handleGenerate) ---
 
 
 interface UploadedAssets {
@@ -136,7 +222,7 @@ function AIGenerate() {
   const [showPreview, setShowPreview] = useState(false);
   const [generatedElements, setGeneratedElements] = useState<CertificateElement[]>([]);
 
-  // --- NEW STATE: File Uploads ---
+
   const [showFileModal, setShowFileModal] = useState(false);
   const [assets, setAssets] = useState<UploadedAssets>({
     logos: [],
@@ -153,7 +239,6 @@ function AIGenerate() {
     { id: "letter-landscape" as CertificateSize, label: "US Letter (Landscape)" },
   ];
 
-  // --- HANDLER: Convert File to Base64 ---
   const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -163,7 +248,6 @@ function AIGenerate() {
     });
   };
 
-  // --- HANDLER: File Input Changes ---
   const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'signature' | 'watermark') => {
     if (!e.target.files?.length) return;
     const files = Array.from(e.target.files);
@@ -200,37 +284,37 @@ function AIGenerate() {
     });
   };
 
-  // --- GENERATION LOGIC ---
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     setIsGenerating(true);
     try {
-      // 1. Get AI Elements (This includes the signature text frames like sig-0, sig-1, etc.)
+  
       const elements = await generateCertificateElements(prompt, selectedSize);
       
-      // 2. Inject Uploaded Assets into Elements List
       const { width, height } = getDimensions(selectedSize); // Get dimensions here
       const newElements: CertificateElement[] = [...elements];
 
-      // --- LOGOS (Smart Positioning) ---
       const logoCount = assets.logos.length;
-      const logoSize = 80;
+      const logoSize = 70; // Changed to 70 as per the original user code in the request
       const logoMargin = 50;
       
-      // Call the updated positioning function
       const logoPositions = getLogoPositions(selectedSize, width, height, logoCount, logoSize, logoMargin, newElements);
 
-      // ⭐️ CONFIGURATION: Define horizontal adjustment for all logos (-10 = slight shift left) ⭐️
-      const horizontalLogoShift = -270; // Adjust this value to shift all logos horizontally
+      const isPortrait = selectedSize.includes('portrait');
+
+      const horizontalLogoShift = -270; 
 
       assets.logos.forEach((logo, i) => {
         const pos = logoPositions[i];
         if (!pos) return;
 
+
+        const finalX = pos.x + (isPortrait ? horizontalLogoShift : 0);
+
         newElements.push({
           id: `custom-logo-${Date.now()}-${i}`,
           type: "image",
-          x: pos.x + horizontalLogoShift, // Apply the horizontal shift here
+          x: finalX, // <-- Using the conditionally shifted X position
           y: pos.y,
           width: logoSize,
           height: logoSize,
@@ -240,15 +324,23 @@ function AIGenerate() {
         });
       });
 
-      // --- WATERMARK (Center) ---
       if (assets.watermark) {
+        // Define fixed size for the watermark image (e.g., 600x600 is used as a base)
+        const watermarkWidth = 600;
+        const watermarkHeight = 600;
+        
+        // Calculate the center point for the watermark:
+        // This ensures centering regardless of portrait/landscape or paper size.
+        const centerX = (width / 2) - (watermarkWidth / 2);
+        const centerY = (height / 2) - (watermarkHeight / 2);
+
         newElements.push({
           id: `custom-watermark-${Date.now()}`,
           type: "image",
-          x: width / 2 - 150,
-          y: height / 2 - 200,
-          width: 600,
-          height: 600,
+          x: centerX, // Centered X
+          y: centerY, // Centered Y
+          width: watermarkWidth,
+          height: watermarkHeight,
           imageUrl: assets.watermark,
           opacity: 0.15, // Low opacity for watermark
           zIndex: 5, // Above background, below text
@@ -256,18 +348,14 @@ function AIGenerate() {
         });
       }
 
-      // --- SIGNATURES (ADAPT TO AI TEXT FRAME PLACEMENT) ---
       const sigCount = assets.signatures.length;
       const sigWidth = 120; // Standard image width (can be adjusted)
       const sigHeight = 60; // Standard image height (can be adjusted)
 
       const signatureFramePositions: Position[] = [];
 
-      // Check if the current size is portrait
-      const isPortrait = selectedSize.includes('portrait');
-
       for (let i = 0; i < sigCount; i++) {
-        // Find the AI-generated text frame for the signature line (e.g., sig-0, sig-1)
+
         const sigFrame = elements.find(el => el.id === `sig-${i}`);
         
         // FIX: Check if sigFrame is defined AND has a width property
@@ -276,11 +364,10 @@ function AIGenerate() {
           // 1. Calculate X Position
           const centerX = sigFrame.x + (sigFrame.width / 2);
           let imageX = centerX - (sigWidth / 2);
-          
-          // Apply a base horizontal shift (e.g., -15px for left shift) for all sizes.
+    
           let horizontalOffset = -150; // Base shift left 15px
 
-          // ⭐️ NEW LOGIC: Apply additional shift for Portrait mode only ⭐️
+          // ⭐️ EXISTING LOGIC: Apply additional shift for Portrait mode only ⭐️
           if (isPortrait) {
               // Add a positive value to shift it right in portrait mode
               horizontalOffset += 20; // For example, shift an additional 10px right in portrait
@@ -488,10 +575,10 @@ function AIGenerate() {
                 </div>
              )}
              {assets.watermark && (
-                <div className="bg-slate-700/50 border border-slate-600 rounded-full px-3 py-1 text-slate-300 text-xs flex items-center gap-2">
-                   <Sparkles className="w-3 h-3" /> Watermark Attached
-                </div>
-             )}
+    <div className="bg-cyan-800/50 border border-cyan-700 rounded-full px-3 py-1 text-cyan-400 text-xs flex items-center gap-2">
+       <Sparkles className="w-3 h-3" /> Watermark Attached
+    </div>
+)}
            </div>
         )}
 
