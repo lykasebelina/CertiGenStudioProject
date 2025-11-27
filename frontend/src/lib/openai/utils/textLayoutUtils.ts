@@ -61,8 +61,8 @@ export function positionSignaturesAdvanced(
       // Portrait: row 1 center, row 2 center
       signatures[0].x = centerX;
       signatures[1].x = centerX;
-      signatures[0].y = bottomY - rowGap;
-      signatures[1].y = bottomY;
+      signatures[0].y = bottomY * 1 + 20 - rowGap * 1.8;
+      signatures[1].y = bottomY * 1 + 30;
     }
   }
 

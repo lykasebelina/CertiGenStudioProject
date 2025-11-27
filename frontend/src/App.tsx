@@ -16,6 +16,8 @@ import MyCertificates from "./pages/app/MyCertificates";
 import Settings from "./pages/app/Settings";
 import ResetPassword from "./pages/public/ResetPassword";
 
+//import CertificateViewer from './pages/public/CertificateViewer'; // Import the new page
+
 import PublicLayout from "./layouts/PublicLayout";
 import PrivateLayout from "./layouts/PrivateLayout";
 import AuthModal from "./pages/public/AuthModal";
@@ -51,6 +53,8 @@ function App() {
             <Route index element={<Home />} />
           </Route>
           <Route path="/reset-password" element={<ResetPassword />} />
+          {/* ⭐️ NEW PUBLIC VIEWING ROUTE ⭐️ * /* Using /c/ for a short URL structure, e.g., yoursite.com/c/123xyz */}
+       {/* <Route path="/c/:id" element={<CertificateViewer />} />*/}
 
           {/* 🔒 Private Routes */}
           <Route path="/app" element={<PrivateLayout />}>
@@ -65,6 +69,8 @@ function App() {
               <Route path="generated-templates" element={<GeneratedTemplates />} />
               <Route path="my-certificates" element={<MyCertificates />} />
               <Route path="settings" element={<Settings />} />
+
+              
             </Route>
           </Route>
 

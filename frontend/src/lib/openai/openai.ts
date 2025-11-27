@@ -67,7 +67,7 @@ console.log("✅ Inner white frame added.");
      b.y = margin;
      b.width = canvasSize.width - margin * 2;
      b.height = canvasSize.height - margin * 2;
-     b.zIndex = 4;
+     b.zIndex = 2;
    });
 
 

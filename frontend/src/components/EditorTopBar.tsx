@@ -1,6 +1,6 @@
 // src/components/EditorTopBar.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Minus,
   Plus,
@@ -11,17 +11,18 @@ import {
   Trash2,
   Save,
   Download,
-  ChevronDown, // New Import for the dropdown icon
+  ChevronDown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  RotateCcw, // Added Undo Icon
 } from "lucide-react";
 
-// Define the supported export formats
 export type ExportFormat = "jpg" | "png" | "pdf" | "pptx";
 
 interface EditorTopBarProps {
-  activeToolTab: "select" | "pattern";
-  setActiveToolTab: (tab: "select" | "pattern") => void;
-  selectedElement?: string | null;
-  onTextStyleChange?: (style: {
+  // Changed: Now accepts activeStyles object instead of individual props
+  activeStyles?: {
     fontSize?: number;
     fontFamily?: string;
     fontWeight?: string;
@@ -29,30 +30,63 @@ interface EditorTopBarProps {
     textDecoration?: string;
     color?: string;
     textAlign?: string;
-  }) => void;
+    textTransform?: "normal" | "upper" | "lower" | "title";
+  };
+  selectedElement?: string | null;
+  onTextStyleChange?: (style: any) => void;
   onDeleteElement?: () => void;
   onSave?: () => void;
-  // CHANGED: onDownload now accepts the format as an argument
   onDownload?: (format: ExportFormat) => void;
+  onUndo?: () => void; // Added Undo Prop
   isSaving?: boolean;
+  // Kept your existing props
+  activeToolTab?: "select" | "pattern"; 
+  setActiveToolTab?: (tab: "select" | "pattern") => void;
+  onRevert?: () => void;
+  isBulkMode?: boolean;
 }
 
 const EditorTopBar: React.FC<EditorTopBarProps> = ({
+  activeStyles = {},
   selectedElement,
   onTextStyleChange,
   onDeleteElement,
   onSave,
   onDownload,
+  onUndo,
   isSaving = false,
 }) => {
+  // Local state synced with activeStyles
   const [fontSize, setFontSize] = useState(16.3);
   const [selectedFont, setSelectedFont] = useState("Canva Sans");
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [textColor, setTextColor] = useState("#000000");
-  // NEW STATE: For managing the download dropdown visibility
+  const [textAlign, setTextAlign] = useState("left");
+  const [textCase, setTextCase] = useState("normal");
+
+  // Dropdown states
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [showTransformMenu, setShowTransformMenu] = useState(false);
+
+  // Sync state when activeStyles changes
+  useEffect(() => {
+    if (activeStyles.fontSize) setFontSize(activeStyles.fontSize);
+    if (activeStyles.fontFamily) setSelectedFont(activeStyles.fontFamily);
+    if (activeStyles.color) setTextColor(activeStyles.color);
+    setIsBold(activeStyles.fontWeight === "bold");
+    setIsItalic(activeStyles.fontStyle === "italic");
+    setIsUnderline(activeStyles.textDecoration === "underline");
+    if (activeStyles.textAlign) setTextAlign(activeStyles.textAlign);
+    if (activeStyles.textTransform) setTextCase(activeStyles.textTransform as string);
+  }, [activeStyles]);
+
+  // Close menus on interaction
+  useEffect(() => {
+    setShowTransformMenu(false);
+    setIsDownloadOpen(false);
+  }, [selectedElement]);
 
   const fonts = [
     "Canva Sans",
@@ -66,47 +100,16 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
     "Open Sans",
   ];
 
-  const handleFontChange = (font: string) => {
-    setSelectedFont(font);
-    onTextStyleChange?.({ fontFamily: font });
+  const update = (style: any) => {
+    if (!selectedElement) return;
+    onTextStyleChange?.(style);
   };
 
-  const handleFontSizeChange = (size: number) => {
-    setFontSize(size);
-    onTextStyleChange?.({ fontSize: size });
-  };
-
-  const handleBoldToggle = () => {
-    const newBold = !isBold;
-    setIsBold(newBold);
-    onTextStyleChange?.({ fontWeight: newBold ? "bold" : "normal" });
-  };
-
-  const handleItalicToggle = () => {
-    const newItalic = !isItalic;
-    setIsItalic(newItalic);
-    onTextStyleChange?.({ fontStyle: newItalic ? "italic" : "normal" });
-  };
-
-  const handleUnderlineToggle = () => {
-    const newUnderline = !isUnderline;
-    setIsUnderline(newUnderline);
-    onTextStyleChange?.({ textDecoration: newUnderline ? "underline" : "none" });
-  };
-
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const color = e.target.value;
-    setTextColor(color);
-    onTextStyleChange?.({ color: color });
-  };
-
-  // NEW FUNCTION: Handles the format selection from the dropdown
   const handleExport = (format: ExportFormat) => {
     onDownload?.(format);
-    setIsDownloadOpen(false); // Close the dropdown after selection
+    setIsDownloadOpen(false);
   };
 
-  // List of export options for the dropdown
   const exportOptions: { label: string; format: ExportFormat }[] = [
     { label: "JPG (High Quality)", format: "jpg" },
     { label: "PNG (Transparency)", format: "png" },
@@ -128,8 +131,12 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
         {/* Font Family */}
         <select
           value={selectedFont}
-          onChange={(e) => handleFontChange(e.target.value)}
-          className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          onChange={(e) => {
+            setSelectedFont(e.target.value);
+            update({ fontFamily: e.target.value });
+          }}
+          disabled={!selectedElement}
+          className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
         >
           {fonts.map((font) => (
             <option key={font} value={font}>
@@ -143,21 +150,35 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
         {/* Font Size */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => handleFontSizeChange(Math.max(8, fontSize - 0.5))}
-            className="p-1.5 hover:bg-slate-100 rounded transition"
+            onClick={() => {
+              const newSize = Math.max(8, fontSize - 1);
+              setFontSize(newSize);
+              update({ fontSize: newSize });
+            }}
+            disabled={!selectedElement}
+            className="p-1.5 hover:bg-slate-100 rounded transition disabled:opacity-50"
           >
             <Minus size={16} className="text-slate-800" />
           </button>
           <input
             type="number"
             value={fontSize}
-            onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-            className="w-14 px-2 py-1 text-center border border-slate-300 rounded text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-            step="0.1"
+            onChange={(e) => {
+              const newSize = Number(e.target.value);
+              setFontSize(newSize);
+              update({ fontSize: newSize });
+            }}
+            disabled={!selectedElement}
+            className="w-14 px-2 py-1 text-center border border-slate-300 rounded text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
-            onClick={() => handleFontSizeChange(fontSize + 0.5)}
-            className="p-1.5 hover:bg-slate-100 rounded transition"
+            onClick={() => {
+              const newSize = fontSize + 1;
+              setFontSize(newSize);
+              update({ fontSize: newSize });
+            }}
+            disabled={!selectedElement}
+            className="p-1.5 hover:bg-slate-100 rounded transition disabled:opacity-50"
           >
             <Plus size={16} className="text-slate-800" />
           </button>
@@ -165,21 +186,22 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* Color Picker (Functional) */}
+        {/* Color Picker */}
         <div className="relative group">
           <div 
-            className="w-9 h-9 rounded-lg border-2 border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative"
+            className={`w-9 h-9 rounded-lg border-2 border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative ${!selectedElement ? 'opacity-50' : ''}`}
             style={{ backgroundColor: textColor }}
           >
-            {/* The actual input is hidden but covers the button area */}
             <input 
               type="color" 
               value={textColor}
-              onChange={handleColorChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              title="Change Text Color"
+              onChange={(e) => {
+                setTextColor(e.target.value);
+                update({ color: e.target.value });
+              }}
+              disabled={!selectedElement}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
             />
-             {/* Icon only visible if color is very light or transparent, otherwise obscured by bg color */}
             <div className="pointer-events-none mix-blend-difference">
                <Palette size={16} className="text-white filter invert" /> 
             </div>
@@ -190,42 +212,126 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         {/* Bold */}
         <button
-          onClick={handleBoldToggle}
+          onClick={() => {
+            const next = !isBold;
+            setIsBold(next);
+            update({ fontWeight: next ? "bold" : "normal" });
+          }}
+          disabled={!selectedElement}
           className={`p-2 rounded-lg transition ${
             isBold ? "bg-slate-800 text-white" : "hover:bg-slate-100 text-slate-800"
-          }`}
-          title="Bold"
+          } disabled:opacity-50`}
         >
           <Bold size={18} />
         </button>
 
         {/* Italic */}
         <button
-          onClick={handleItalicToggle}
+          onClick={() => {
+            const next = !isItalic;
+            setIsItalic(next);
+            update({ fontStyle: next ? "italic" : "normal" });
+          }}
+          disabled={!selectedElement}
           className={`p-2 rounded-lg transition ${
             isItalic ? "bg-slate-800 text-white" : "hover:bg-slate-100 text-slate-800"
-          }`}
-          title="Italic"
+          } disabled:opacity-50`}
         >
           <Italic size={18} />
         </button>
 
-        {/* Underline (New) */}
+        {/* Underline */}
         <button
-          onClick={handleUnderlineToggle}
+          onClick={() => {
+            const next = !isUnderline;
+            setIsUnderline(next);
+            update({ textDecoration: next ? "underline" : "none" });
+          }}
+          disabled={!selectedElement}
           className={`p-2 rounded-lg transition ${
             isUnderline ? "bg-slate-800 text-white" : "hover:bg-slate-100 text-slate-800"
-          }`}
-          title="Underline"
+          } disabled:opacity-50`}
         >
           <Underline size={18} />
         </button>
+
+        <div className="w-px h-8 bg-slate-300"></div>
+
+        {/* ADDED: Text Transform Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              if (selectedElement) {
+                setShowTransformMenu(!showTransformMenu);
+              }
+            }}
+            className={`p-2 rounded-lg transition ${showTransformMenu ? "bg-slate-200" : "hover:bg-slate-100"} disabled:opacity-50`}
+            disabled={!selectedElement}
+          >
+            <span className="text-slate-800 font-semibold text-sm">aA</span>
+          </button>
+
+          {showTransformMenu && selectedElement && (
+            <div className="absolute top-full left-0 mt-2 bg-white shadow-xl rounded-lg border border-slate-200 w-40 z-50 overflow-hidden">
+              {["normal", "upper", "lower", "title"].map((value) => (
+                <button
+                  key={value}
+                  onClick={() => {
+                    setTextCase(value);
+                    update({ textTransform: value });
+                    setShowTransformMenu(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 hover:bg-slate-100 text-sm text-slate-800 border-b border-slate-100 last:border-0 ${textCase === value ? "bg-slate-100 font-bold text-blue-600" : ""}`}
+                >
+                  {value === "normal" && "Normal"}
+                  {value === "upper" && "UPPERCASE"}
+                  {value === "lower" && "lowercase"}
+                  {value === "title" && "Capitalize Words"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-8 bg-slate-300"></div>
+
+        {/* ADDED: Alignment Buttons */}
+        <div className="flex items-center gap-0.5">
+          {[
+            { type: "left", icon: <AlignLeft size={18} className="text-slate-800" /> },
+            { type: "center", icon: <AlignCenter size={18} className="text-slate-800" /> },
+            { type: "right", icon: <AlignRight size={18} className="text-slate-800" /> },
+          ].map((btn) => (
+            <button
+              key={btn.type}
+              onClick={() => {
+                setTextAlign(btn.type);
+                update({ textAlign: btn.type });
+              }}
+              className={`p-2 rounded-lg transition ${textAlign === btn.type ? "bg-slate-200" : "hover:bg-slate-100"} disabled:opacity-50`}
+              disabled={!selectedElement}
+            >
+              {btn.icon}
+            </button>
+          ))}
+        </div>
 
       </div>
 
       {/* RIGHT: Actions */}
       <div className="flex flex-wrap items-center gap-2">
         
+        {/* ADDED: Undo Button */}
+        {onUndo && (
+          <button
+            onClick={onUndo}
+            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition text-white"
+            title="Undo"
+          >
+            <RotateCcw size={20} />
+          </button>
+        )}
+
         {/* Save Button */}
         <button 
           onClick={onSave}
@@ -236,7 +342,7 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           {isSaving ? "Saving..." : "Save"}
         </button>
 
-        {/* NEW Download Button Group with Dropdown */}
+        {/* Download Button Group */}
         <div className="relative">
           <button 
             onClick={() => setIsDownloadOpen(!isDownloadOpen)}

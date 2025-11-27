@@ -18,7 +18,7 @@ export async function generateInnerFrame(
     y: margin,
     width: canvasSize.width - margin * 2,
     height: canvasSize.height - margin * 2,
-    zIndex: 4,
+    zIndex: 3,
     backgroundColor: "#ffffff",
     opacity: 1,
 

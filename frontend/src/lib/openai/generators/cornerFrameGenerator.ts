@@ -6,6 +6,10 @@ import { extractCornerFrameColors, detectCornerFrameStyle } from "../utils/corne
 import { formatCornerFramePrompt } from "../utils/cornerFramePromptUtils";
 import { generateImageWithDALLE, determineImageSize } from "../utils/dalleUtils";
 
+// ✅ Import storage utils
+import { uploadDalleImageToSupabase } from "../../storageUtils";
+import { supabase } from "../../supabaseClient";
+
 type Corner = "tl" | "tr" | "bl" | "br";
 
 export async function generateCornerFrame(
@@ -19,42 +23,19 @@ export async function generateCornerFrame(
   const colors = extractCornerFrameColors(userPrompt);
   const style = detectCornerFrameStyle(userPrompt);
 
-  // Determine corner frame size & offset
-  
-  // ⭐️ FIX 1: Base cornerSize on the LONGEST side (max) to ensure it fills the diagonal 
-  // and meets near the center in both orientations.
   const baseSize = Math.max(canvasSize.width, canvasSize.height);
-  
-  // Using 0.55-0.60 multiplier for the size is typically sufficient for this look.
   const cornerSize = Math.floor(baseSize * 0.3); 
-  
-  // ⭐️ FIX 2: Calculate a single, uniform offset value to push the anchor points 
-  // far enough outward to fully cover the absolute canvas corners.
-  // 0.20 works well with a cornerSize multiplier of 0.58.
   const offset = Math.floor(cornerSize * 0.5); 
 
   // Define positions for four corners
   const positions: { id: Corner; x: number; y: number }[] = [
-    // Top Left (TL)
-    // Anchor X/Y is pushed negatively (outward) by offset
     { id: "tl", x: -offset, y: -offset },
-    
-    // Top Right (TR) 
-    // Anchor X is placed near the right edge (width - size) and adjusted OUTWARD (+ offset).
     { id: "tr", x: canvasSize.width - cornerSize + offset, y: -offset },
-    
-    // Bottom Left (BL) 
-    // Anchor Y is placed near the bottom edge (height - size) and adjusted OUTWARD (+ offset).
     { id: "bl", x: -offset, y: canvasSize.height - cornerSize + offset },
-    
-    // Bottom Right (BR) 
-    // Anchor X/Y are placed near the right/bottom edge and adjusted OUTWARD (+ offset).
     { id: "br", x: canvasSize.width - cornerSize + offset, y: canvasSize.height - cornerSize + offset },
   ];
 
-  // Rotation for each corner to make it face inward
   const rotationMap: Record<Corner, number> = {
-  
     tl: 45,   // top-left
     tr: 135,  // top-right
     bl: 315,  // bottom-left
@@ -62,15 +43,30 @@ export async function generateCornerFrame(
   };
 
   // Optionally generate a DALL·E image for the corner frame
-  let imageUrl: string | null = null;
+  let finalImageUrl: string | null = null;
+  
   if (style.useDallePattern) {
     try {
       const dallePrompt = formatCornerFramePrompt(userPrompt, colors, style);
       const imageSize = determineImageSize(cornerSize, cornerSize);
-      imageUrl = await generateImageWithDALLE(dallePrompt, imageSize);
+      
+      // 🟢 STEP A: Get Base64
+      const base64Data = await generateImageWithDALLE(dallePrompt, imageSize);
+
+      if (base64Data) {
+        // 🟢 STEP B: Upload to Supabase
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id || "guest";
+
+        const permanentUrl = await uploadDalleImageToSupabase(base64Data, userId);
+        
+        if (permanentUrl) {
+            finalImageUrl = permanentUrl; // ✅ Success: Use the short URL
+        }
+      }
     } catch (err) {
-      console.error("DALL·E error, fallback to CSS:", err);
-      imageUrl = null;
+      console.error("DALL·E Corner Frame error, fallback to CSS:", err);
+      finalImageUrl = null;
     }
   }
 
@@ -83,10 +79,11 @@ export async function generateCornerFrame(
       y: pos.y,
       width: cornerSize,
       height: cornerSize,
-      zIndex: 6,
+      zIndex: 4,
       opacity: 1,
-      backgroundColor: imageUrl ? undefined : colors[index % colors.length],
-      imageUrl: imageUrl ?? undefined,
+      // If we have a final image URL, use it. Otherwise fall back to color.
+      backgroundColor: finalImageUrl ? undefined : colors[index % colors.length],
+      imageUrl: finalImageUrl ?? undefined,
       rotate: rotationMap[pos.id],
       metadata: { corner: pos.id, isCornerFrame: true },
     });

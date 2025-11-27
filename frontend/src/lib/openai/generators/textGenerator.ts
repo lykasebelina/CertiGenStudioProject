@@ -216,21 +216,21 @@ const portraitOffsets: Record<string, number> = isLandscape ? {} : SPACING_MAP.p
   // HEADER ELEMENTS
   // -------------------------------------------------------
   const instEl = centerTextElement(
-    { id: "inst", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.institution, content: F.institution, color: "#222", zIndex: 10 },
+    { id: "inst", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.institution, content: F.institution, color: "#222", zIndex: 6 },
     frameX, frameWidth, hTop
   );
   applyFrameAndClamp(instEl, "inst", isLandscape);
   add(withOverrides(instEl, "inst"));
 
   const deptEl = centerTextElement(
-    { id: "dept", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.department, content: F.department, color: "#222", zIndex: 10 },
+    { id: "dept", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.department, content: F.department, color: "#222", zIndex: 7 },
     frameX, frameWidth, hTop + hGap
   );
   applyFrameAndClamp(deptEl, "dept", isLandscape);
   add(withOverrides(deptEl, "dept"));
 
   const locEl = centerTextElement(
-    { id: "loc", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.location, content: F.location, color: "#222", zIndex: 10 },
+    { id: "loc", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.location, content: F.location, color: "#222", zIndex: 8 },
     frameX, frameWidth, hTop + hGap * 2
   );
   applyFrameAndClamp(locEl, "loc", isLandscape);
@@ -240,7 +240,7 @@ const portraitOffsets: Record<string, number> = isLandscape ? {} : SPACING_MAP.p
   // BODY ELEMENTS
   // -------------------------------------------------------
 const openingEl = centerTextElement(
-    { id: "opening", type: "text", x: 0, y: 0, italic: true, fontSize: fontBase * FONT_SIZE_MAP.openingPhrase, content: F.openingPhrase, color: "#222", zIndex: 10 },
+    { id: "opening", type: "text", x: 0, y: 0, italic: true, fontSize: fontBase * FONT_SIZE_MAP.openingPhrase, content: F.openingPhrase, color: "#222", zIndex: 9 },
     frameX, frameWidth, isLandscape ? bTop : bTop + (portraitOffsets["opening"] ?? 0) * bGap
   );
   applyFrameAndClamp(openingEl, "opening", isLandscape);
@@ -248,27 +248,27 @@ const openingEl = centerTextElement(
 
   const titleEl = centerTextElement(
     { id: "title", type: "text", x: 0, y: 0, bold: true, fontFamily: "Times New Roman", fontSize: fontBase * FONT_SIZE_MAP.certificateTitle, content: (F.certificateTitle || "").toUpperCase(), color: "#222", zIndex: 10 },
-    frameX, frameWidth, isLandscape ? bTop + bGap  : bTop + (portraitOffsets["title"] ?? 0) * bGap
+    frameX, frameWidth, isLandscape ? bTop + bGap : bTop + (portraitOffsets["title"] ?? 0) * bGap
   );
   applyFrameAndClamp(titleEl, "title", isLandscape);
   add(withOverrides(titleEl, "title"));
 
   const preRecEl = centerTextElement(
-    { id: "preRec", type: "text", x: 0, y: 0, italic: true, fontSize: fontBase * FONT_SIZE_MAP.preRecipientPhrase, content: F.preRecipientPhrase, color: "#222", zIndex: 10 },
+    { id: "preRec", type: "text", x: 0, y: 0, italic: true, fontSize: fontBase * FONT_SIZE_MAP.preRecipientPhrase, content: F.preRecipientPhrase, color: "#222", zIndex: 11 },
     frameX, frameWidth, isLandscape ? bTop + bGap * 4.5 : bTop + (portraitOffsets["preRec"] ?? 0) * bGap
   );
   applyFrameAndClamp(preRecEl, "preRec", isLandscape);
   add(withOverrides(preRecEl, "preRec"));
 
   const recNameEl = centerTextElement(
-    { id: "recName", type: "text", x: 0, y: 0, bold: true, fontSize: fontBase * FONT_SIZE_MAP.recipientName, content: F.recipientName, color: "#222", zIndex: 10 },
+    { id: "recName", type: "text", x: 0, y: 0, bold: true, fontSize: fontBase * FONT_SIZE_MAP.recipientName, content: F.recipientName, color: "#222", zIndex: 12 },
     frameX, frameWidth, isLandscape ? bTop + bGap * 6.2 : bTop + (portraitOffsets["recName"] ?? 0) * bGap
   );
   applyFrameAndClamp(recNameEl, "recName", isLandscape);
   add(withOverrides(recNameEl, "recName"));
 
   const purposeEl = centerTextElement(
-    { id: "purpose", type: "text", x: 0, y: 0, width: frameWidth * 0.75, fontSize: fontBase * FONT_SIZE_MAP.purposePhrase, content: F.purposePhrase, color: "#222", zIndex: 10 },
+    { id: "purpose", type: "text", x: 0, y: 0, width: frameWidth * 0.75, fontSize: fontBase * FONT_SIZE_MAP.purposePhrase, content: F.purposePhrase, color: "#222", zIndex: 13 },
     frameX, frameWidth, isLandscape ? bTop + bGap * 9.6 : bTop + (portraitOffsets["purpose"] ?? 0) * bGap
   );
   applyFrameAndClamp(purposeEl, "purpose", isLandscape);
@@ -276,7 +276,7 @@ const openingEl = centerTextElement(
 
   if (F.role) {
     const roleEl = centerTextElement(
-      { id: "role", type: "text", x: 0, y: 0, bold: true, fontSize: fontBase * FONT_SIZE_MAP.role, content: F.role, color: "#222", zIndex: 10 },
+      { id: "role", type: "text", x: 0, y: 0, bold: true, fontSize: fontBase * FONT_SIZE_MAP.role, content: F.role, color: "#222", zIndex: 14 },
       frameX, frameWidth, isLandscape ? bTop + bGap * 11.5 : bTop + (portraitOffsets["role"] ?? 0) * bGap
     );
     applyFrameAndClamp(roleEl, "role", isLandscape);
@@ -284,14 +284,14 @@ const openingEl = centerTextElement(
   }
 
   const eventEl = centerTextElement(
-    { id: "event", type: "text", x: 0, y: 0, width: frameWidth * 0.75, fontSize: fontBase * FONT_SIZE_MAP.eventDetails, content: F.eventDetails, color: "#222", zIndex: 10 },
+    { id: "event", type: "text", x: 0, y: 0, width: frameWidth * 0.75, fontSize: fontBase * FONT_SIZE_MAP.eventDetails, content: F.eventDetails, color: "#222", zIndex: 15 },
     frameX, frameWidth, isLandscape ? bTop + bGap * 13.5 : bTop + (portraitOffsets["event"] ?? 0) * bGap
   );
   applyFrameAndClamp(eventEl, "event", isLandscape);
   add(withOverrides(eventEl, "event"));
 
   const dateEl = centerTextElement(
-    { id: "date", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.datePlace, content: F.datePlace, color: "#222", zIndex: 10 },
+    { id: "date", type: "text", x: 0, y: 0, fontSize: fontBase * FONT_SIZE_MAP.datePlace, content: F.datePlace, color: "#222", zIndex: 16 },
     frameX, frameWidth, isLandscape ? bTop + bGap * 19.5 : bTop + (portraitOffsets["date"] ?? 0) * bGap
   );
   applyFrameAndClamp(dateEl, "date", isLandscape);
@@ -310,7 +310,7 @@ const openingEl = centerTextElement(
       fontSize: fontBase * FONT_SIZE_MAP.signature,
       content: `${sig.name}\n${sig.title}`,
       color: "#222",
-      zIndex: 10,
+      zIndex: 17,
     });
   });
 

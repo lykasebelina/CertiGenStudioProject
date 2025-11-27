@@ -319,7 +319,7 @@ function AIGenerate() {
           width: logoSize,
           height: logoSize,
           imageUrl: logo,
-          zIndex: 50,
+          zIndex: 18,
           draggable: true
         });
       });
@@ -413,7 +413,7 @@ function AIGenerate() {
           width: sigWidth,
           height: sigHeight,
           imageUrl: sig,
-          zIndex: 50,
+          zIndex: 19,
           draggable: true
         });
       });

@@ -47,9 +47,9 @@ function Sidebar({
 //    { id: "template-library", label: "Template Library", icon: Library },
     { id: "custom-template", label: "Custom Template Hub", icon: FileText },
     
-    { id: "generated-templates", label: "Generated Templates", icon: Library },
+    { id: "generated-templates", label: "Generated Certificates", icon: Library },
 
-    
+
     { id: "my-certificates", label: "My Certificates", icon: Award },
     { id: "brand-kit", label: "Brand Kit", icon: Palette },
     { id: "settings", label: "Settings", icon: SettingsIcon },

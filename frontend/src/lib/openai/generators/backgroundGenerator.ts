@@ -3,7 +3,6 @@
 // Hybrid Smart Mode — full file replacement
 // ================================
 
-
 import { CertificateElement } from "../../../types/certificate";
 import { SIZE_MAP } from "../utils/sizeUtils";
 import {
@@ -19,16 +18,19 @@ import {
 } from "../utils/backgroundColorUtils";
 import { generateImageWithDALLE, determineImageSize } from "../utils/dalleUtils";
 
+// ✅ Import the new storage utility
+import { uploadDalleImageToSupabase } from "../../storageUtils";
+import { supabase } from "../../supabaseClient"; 
 
 /**
 * generateBackground
 *
 * - Hybrid Smart Mode:
-*   * pattern -> patterned (strict micro-pattern)
-*   * texture -> textured (soft paper/linen)
-*   * gradient -> css-only
-*   * plain -> solid color
-*   * NOTHING specific (style/theme words only) -> default to soft abstract texture (DALLE)
+* * pattern -> patterned (strict micro-pattern)
+* * texture -> textured (soft paper/linen)
+* * gradient -> css-only
+* * plain -> solid color
+* * NOTHING specific (style/theme words only) -> default to soft abstract texture (DALLE)
 */
 export async function generateBackground(
  userPrompt: string,
@@ -61,7 +63,6 @@ export async function generateBackground(
 
 
  // 1) Detect background type via utility
- // detectBackgroundType now understands explicit keywords and style/theme fallbacks
  const detected = detectBackgroundType(userPrompt);
 
 
@@ -72,7 +73,6 @@ export async function generateBackground(
 
  // 3) Gradient -> CSS only (no DALLE)
  if (detected === "gradient") {
-   // If user supplied colors, use them. Otherwise fallback to neutral gradient.
    const baseColors = extractedColors.length
      ? extractedColors.map((c) => adjustBaseColor(c, userPrompt))
      : ["#f8f8f8", "#efefef"];
@@ -145,27 +145,22 @@ export async function generateBackground(
  }
 
 
- // 5) For "textured" or "patterned" or DEFAULT (style-only) -> use DALLE but with strict mode
- // determine mode: patterned (micro-pattern) vs textured (soft texture)
- // detectBackgroundType returns "textured" for texture, "patterned" if pattern keywords present,
- // otherwise for style-only it returns "textured" (safe default).
+ // 5) For "textured" or "patterned" -> DALLE Generation
  let dalleMode: "patterned" | "textured" = "textured";
  if (detected === "patterned") dalleMode = "patterned";
  else if (detected === "textured") dalleMode = "textured";
- else dalleMode = "textured"; // safe fallback for style-only/theme-only prompts
+ else dalleMode = "textured"; 
 
 
- // If user asked multi-color without gradient, prefer "textured" DALLE for soft blending
  const forceTextured =
    dalleMode === "textured" || (isMultiColor && dalleMode === "patterned" === false);
 
 
  try {
-   // Build a clear augmented prompt describing mode and strict negative rules
-   // formatBackgroundPrompt will create a DALLE-safe prompt based on mode
    const augmentedPrompt = `${userPrompt}. Mode: ${
      forceTextured ? "textured" : "patterned"
    } (strict certificate-safe rules)`;
+   
    const backgroundPrompt = formatBackgroundPrompt(
      augmentedPrompt,
      canvasSize,
@@ -174,8 +169,20 @@ export async function generateBackground(
 
 
    const imageSize = determineImageSize(canvasSize.width, canvasSize.height);
-   const imageUrl = await generateImageWithDALLE(backgroundPrompt, imageSize);
+   
+   // 🟢 STEP A: Get Base64 from DALL-E (Updated Utils)
+   const base64Data = await generateImageWithDALLE(backgroundPrompt, imageSize);
+   
+   if (!base64Data) throw new Error("No image data returned from DALL-E");
 
+   // 🟢 STEP B: Upload to Supabase to get a short URL
+   // Using a default ID or guest since this runs in a generator context
+   const { data: userData } = await supabase.auth.getUser();
+   const userId = userData.user?.id || "guest";
+   
+   const permanentUrl = await uploadDalleImageToSupabase(base64Data, userId);
+
+   if (!permanentUrl) throw new Error("Failed to upload background to permanent storage");
 
    elements.push({
      id: `background-${Date.now()}`,
@@ -185,14 +192,15 @@ export async function generateBackground(
      width: canvasSize.width,
      height: canvasSize.height,
      zIndex: 1,
-     imageUrl,
+     imageUrl: permanentUrl, // ✅ Assign the clean URL, NOT the Base64 string
      opacity: 1,
    });
 
 
    return elements;
  } catch (err) {
-   // fallback to a neutral soft color fill to avoid throwing
+   console.error("Background Generation Error:", err);
+   // fallback to a neutral soft color
    elements.push({
      id: `background-${Date.now()}`,
      type: "background",
@@ -207,7 +215,3 @@ export async function generateBackground(
    return elements;
  }
 }
-
-
-
-
