@@ -1,264 +1,259 @@
-// src/pages/public/CertificateViewer.tsx
-
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient";
-import { Certificate, CertificateElement } from "../../types/certificate";
-import KonvaCanvas from "../../components/KonvaCanvas";
-import { Search, Download, Share2, Facebook, Linkedin, Twitter, Loader2 } from "lucide-react";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import jsPDF from 'jspdf';
+import { Download, Facebook } from "lucide-react"; 
+import KonvaCanvas from "../../components/KonvaCanvas";
+import { supabase } from "../../lib/supabaseClient"; 
+import { CertificateElement } from "../../types/certificate"; // Assuming this type is correct
 
-interface GeneratedInstance {
-    name: string;
-    elements: CertificateElement[];
+
+// Muling I-define ang Types
+interface GeneratedCertificateInstance {
+  name: string;
+  elements: CertificateElement[];
 }
 
-const CertificateViewer: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
-    const [certificateData, setCertificateData] = useState<Certificate | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+interface PublicCertificateData {
+  id: string;
+  name: string; // Ito ay 'title' sa Supabase
+  width: number;
+  height: number;
+  template_elements: CertificateElement[]; // Ito ay 'elements' sa Supabase
+  generated_instances: GeneratedCertificateInstance[] | null;
+}
 
-    // Search State
-    const [searchQuery, setSearchQuery] = useState("");
-    const [activeIndex, setActiveIndex] = useState<number>(-1); // -1 means showing the template
-
-    // Derived data
-    const generatedInstances = useMemo(() => {
-        return (certificateData?.generated_instances as GeneratedInstance[]) || [];
-    }, [certificateData]);
-
-    const filteredInstances = useMemo(() => {
-        if (!searchQuery.trim()) return generatedInstances;
-        return generatedInstances.filter(instance => 
-            instance.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [generatedInstances, searchQuery]);
-
-    // Determine what elements to show based on selection
-    const activeElements = useMemo(() => {
-        if (!certificateData) return [];
-        if (activeIndex === -1 || generatedInstances.length === 0) {
-            return certificateData.elements;
-        }
-        // Find the actual index in the original generatedInstances array based on the filtered result
-        const selectedInFilter = filteredInstances[activeIndex];
-        if(!selectedInFilter) return certificateData.elements;
-
-        return selectedInFilter.elements;
-    }, [certificateData, activeIndex, filteredInstances, generatedInstances]);
-
-    const activeName = useMemo(() => {
-        if(activeIndex === -1 || !filteredInstances[activeIndex]) return certificateData?.name || "Certificate";
-        return filteredInstances[activeIndex].name;
-    }, [activeIndex, filteredInstances, certificateData]);
-
-
-    // --- FETCH DATA ---
-    useEffect(() => {
-        const fetchCertificate = async () => {
-            if (!id) return;
-            try {
-                setLoading(true);
-                // Note: Ensure Supabase RLS policies allow public 'select' on certificates table for this to work without auth.
-                const { data, error } = await supabase
-                    .from("certificates")
-                    .select("*")
-                    .eq("id", id)
-                    .single();
-
-                if (error) throw error;
-                setCertificateData(data as Certificate);
-                // If there are generated instances, automatically select the first one
-                if (data.generated_instances && data.generated_instances.length > 0) {
-                    setActiveIndex(0);
-                }
-
-            } catch (err: any) {
-                console.error("Error fetching certificate:", err);
-                setError("Certificate not found or is private.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCertificate();
-    }, [id]);
-
-    // --- DOWNLOAD LOGIC (Reused from Editor) ---
-    const handleDownload = async (format: 'png' | 'pdf') => {
-        if (!certificateData) return;
-        const element = document.getElementById("viewer-render-target");
-        if (!element) { alert("Could not find element to capture."); return; }
-        const fileName = `${activeName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_certificate`;
-
-        try {
-             const canvas = await html2canvas(element, { 
-                 useCORS: true, 
-                 scale: 2, // Higher quality
-                 backgroundColor: certificateData.backgroundColor || "#ffffff" 
-             });
-
-             if (format === 'pdf') {
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                const imgWidth = certificateData.width;
-                const imgHeight = certificateData.height;
-                const orientation = imgWidth > imgHeight ? 'l' : 'p';
-                const pdf = new jsPDF(orientation, 'pt', 'a4');
-                const a4Width = orientation === 'l' ? 841.89 : 595.28;
-                const a4Height = orientation === 'l' ? 595.28 : 841.89;
-                const ratio = Math.min(a4Width / imgWidth, a4Height / imgHeight);
-                const xOffset = (a4Width - (imgWidth * ratio)) / 2;
-                const yOffset = (a4Height - (imgHeight * ratio)) / 2;
-                pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imgWidth * ratio, imgHeight * ratio);
-                pdf.save(`${fileName}.pdf`);
-             } else {
-                 const link = document.createElement('a');
-                 link.download = `${fileName}.png`;
-                 link.href = canvas.toDataURL('image/png');
-                 link.click();
-             }
-        } catch (err) {
-          console.error("Download failed:", err);
-          alert(`Failed to download.`);
-        }
-      };
-
-    // --- SOCIAL SHARING ---
-    const shareUrl = window.location.href;
-    const shareText = `Check out my certificate: ${activeName}`;
-
-    const handleShare = (platform: 'facebook' | 'linkedin' | 'twitter') => {
-        let url = '';
-        switch (platform) {
-            case 'facebook':
-                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-                break;
-            case 'linkedin':
-                url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-                break;
-            case 'twitter':
-                url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
-                break;
-        }
-        window.open(url, '_blank', 'width=600,height=400');
-    };
-
-
-    if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
-    if (error || !certificateData) return <div className="h-screen flex items-center justify-center bg-slate-50 text-slate-500">{error || "Certificate not found"}</div>;
-
-    const scale = Math.min(
-        (window.innerWidth * 0.7) / certificateData.width, // Use 70% of screen width
-        (window.innerHeight * 0.8) / certificateData.height // Use 80% of screen height
-    ) * 100;
-
-    const hasBulk = generatedInstances.length > 0;
-
-    return (
-        <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
-            
-            {/* SIDEBAR - Search & Actions */}
-            <div className="w-full md:w-80 bg-white border-r border-slate-200 p-6 flex flex-col h-auto md:h-screen overflow-y-auto">
-                <h1 className="text-2xl font-bold text-slate-800 mb-6">{certificateData.name}</h1>
-
-                {/* ACTIONS GROUP */}
-                <div className="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <h3 className="text-sm font-semibold text-slate-500 mb-3 uppercase tracking-wider">Actions</h3>
-                    <div className="flex flex-col gap-2">
-                        <button onClick={() => handleDownload('png')} className="flex items-center gap-2 w-full p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm font-medium">
-                            <Download size={16} /> Download PNG
-                        </button>
-                        <button onClick={() => handleDownload('pdf')} className="flex items-center gap-2 w-full p-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 transition text-sm font-medium">
-                             <Download size={16} /> Download PDF
-                        </button>
-
-                        <div className="mt-4">
-                            <h3 className="text-sm font-semibold text-slate-500 mb-2 flex items-center gap-2"><Share2 size={14}/> Share</h3>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleShare('facebook')} className="p-2 bg-[#1877F2] text-white rounded hover:opacity-90"><Facebook size={18}/></button>
-                                <button onClick={() => handleShare('linkedin')} className="p-2 bg-[#0A66C2] text-white rounded hover:opacity-90"><Linkedin size={18}/></button>
-                                <button onClick={() => handleShare('twitter')} className="p-2 bg-[#1DA1F2] text-white rounded hover:opacity-90"><Twitter size={18}/></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* SEARCH & LIST GROUP (Only if bulk exists) */}
-                {hasBulk && (
-                    <div className="flex-1 flex flex-col min-h-0">
-                         <h3 className="text-sm font-semibold text-slate-500 mb-3 uppercase tracking-wider">Find Your Certificate</h3>
-                        <div className="relative mb-4">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                            <input 
-                                type="text"
-                                placeholder="Search by name..."
-                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                value={searchQuery}
-                                onChange={(e) => { setSearchQuery(e.target.value); setActiveIndex(0); }}
-                            />
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                            {filteredInstances.length === 0 ? (
-                                <p className="text-slate-400 text-sm italic text-center pt-4">No names found.</p>
-                            ) : (
-                                <ul className="space-y-1">
-                                    {filteredInstances.map((instance, index) => (
-                                        <li key={index}>
-                                            <button 
-                                                onClick={() => setActiveIndex(index)}
-                                                className={`w-full text-left px-4 py-3 rounded-md text-sm transition ${activeIndex === index ? 'bg-blue-100 text-blue-800 font-medium border-l-4 border-blue-600' : 'hover:bg-slate-50 text-slate-700'}`}
-                                            >
-                                                {instance.name}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
-                )}
-                 {!hasBulk && (
-                     <div className="text-slate-500 text-sm italic">
-                        Viewing template version.
-                     </div>
-                 )}
-            </div>
-
-            {/* MAIN CANVAS AREA */}
-            <div className="flex-1 bg-slate-200 flex items-center justify-center p-8 overflow-auto relative">
-                 {/* Watermark / Branding overlay (Optional) */}
-                 <div className="absolute bottom-4 right-4 text-slate-400 font-semibold select-none pointer-events-none z-10 flex items-center gap-1">
-                    <Sparkles size={16} /> Created with CertiBuilder
-                 </div>
-
-                <div 
-                    style={{ 
-                        transform: `scale(${scale / 100})`, 
-                        transformOrigin: 'center center',
-                        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" // Tailwind shadow-xl
-                    }}
-                >
-                    <div id="viewer-render-target">
-                        <KonvaCanvas
-                            width={certificateData.width}
-                            height={certificateData.height}
-                            elements={activeElements}
-                            // ⭐️ CRITICAL: Set to false for read-only viewing ⭐️
-                            isEditable={false} 
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+const SIZE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "a4-portrait": { width: 794, height: 1123 },
+  "a4-landscape": { width: 1123, height: 794 },
+  "legal-portrait": { width: 816, height: 1248 },
+  "legal-landscape": { width: 1248, height: 816 },
+  "letter-portrait": { width: 816, height: 1056 },
+  "letter-landscape": { width: 1056, height: 816 },
 };
 
-// Small helper icon for branding
-const Sparkles = ({size}: {size:number}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-)
+
+// ⭐️ CRITICAL FIX: REAL SUPABASE DATA FETCH FUNCTION ⭐️
+const fetchPublicCertificateData = async (certId: string): Promise<PublicCertificateData | null> => {
+  try {
+    // Selects only the available columns in your table
+    const { data, error } = await supabase
+      .from("certificates")
+      .select("id, title, size, elements, generated_instances") 
+      .eq("id", certId)
+      .single();
+
+    if (error) {
+      console.error("Supabase fetch error:", error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    // Determines dimensions based on the 'size' column
+    const dims = SIZE_DIMENSIONS[data.size as string] || SIZE_DIMENSIONS["a4-landscape"];
+
+    return {
+      id: data.id,
+      name: data.title || "Untitled Certificate",
+      width: dims.width,
+      height: dims.height,
+      template_elements: data.elements,
+      // Ensures the data type matches the required interface
+      generated_instances: data.generated_instances as GeneratedCertificateInstance[] | null,
+    };
+
+  } catch (e) {
+    console.error("Error fetching certificate data:", e);
+    return null;
+  }
+};
+
+
+const CertificateViewer: React.FC = () => {
+  const { certId } = useParams<{ certId: string }>();
+  const [data, setData] = useState<PublicCertificateData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (certId) {
+      setLoading(true);
+      // ⭐️ Ginamit na ang totoong Supabase fetch function ⭐️
+      fetchPublicCertificateData(certId)
+        .then(setData)
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [certId]);
+
+  const certificatesToRender: GeneratedCertificateInstance[] = useMemo(() => {
+    if (!data) return [];
+    
+    // CHECK 1: Render Bulk Certificates if available and valid
+    if (data.generated_instances && Array.isArray(data.generated_instances) && data.generated_instances.length > 0) {
+      return data.generated_instances;
+    }
+    
+    // CHECK 2: Fallback to the single template (elements column)
+    if (data.template_elements && Array.isArray(data.template_elements) && data.template_elements.length > 0) {
+      return [{ name: data.name, elements: data.template_elements }];
+    }
+    
+    return [];
+  }, [data]);
+
+
+  // --- DOWNLOAD LOGIC ---
+  const handleDownload = useCallback(async (index: number, name: string, format: 'image' | 'pdf') => {
+    if (!data) return;
+    
+    const element = document.getElementById(`certificate-view-${index}`);
+    if (!element) {
+      alert("Could not find certificate element to capture.");
+      return;
+    }
+
+    setDownloading(name);
+
+    try {
+      // Use html2canvas to capture the rendered Konva Canvas
+      const canvas = await html2canvas(element, { 
+          useCORS: true, 
+          scale: 2, 
+          backgroundColor: "#ffffff" // Default background
+      });
+
+      const fileName = `${data.name} - ${name}`;
+
+      if (format === 'pdf') {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgWidth = data.width;
+        const imgHeight = data.height;
+        const orientation = imgWidth > imgHeight ? 'l' : 'p';
+        const pdf = new jsPDF(orientation, 'pt', 'a4');
+        
+        const a4Width = orientation === 'l' ? 841.89 : 595.28;
+        const a4Height = orientation === 'l' ? 595.28 : 841.89;
+        const ratio = Math.min(a4Width / imgWidth, a4Height / imgHeight);
+        const pdfImgWidth = imgWidth * ratio;
+        const pdfImgHeight = imgHeight * ratio;
+        const xOffset = (a4Width - pdfImgWidth) / 2;
+        const yOffset = (a4Height - pdfImgHeight) / 2;
+
+        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, pdfImgWidth, pdfImgHeight);
+        pdf.save(`${fileName}.pdf`);
+      } else {
+        const link = document.createElement('a');
+        link.download = `${fileName}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+      setDownloading(null);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert(`Failed to download ${name}.`);
+      setDownloading(null);
+    } 
+  }, [data]);
+
+
+  // --- FACEBOOK SHARE LOGIC ---
+  const handleShareFacebook = (index: number, name: string) => {
+    const url = window.location.href; 
+    const shareTitle = `A Certificate for ${name} from ${data?.name}!`;
+    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareTitle)}`;
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  };
+
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg font-medium">Loading Certificate(s)...</div>;
+  }
+
+  if (!data || certificatesToRender.length === 0) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg text-red-600 font-medium">404 | Certificate not found or no instances available.</div>;
+  }
+  
+  // Scaling factor for display preview
+  const scale = data.width > 1000 ? 0.75 : 1.0; 
+
+  return (
+    <div className="min-h-screen bg-slate-100 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold text-gray-900">{data.name}</h1>
+          <p className="mt-2 text-xl text-gray-600">
+            {certificatesToRender.length > 1 ? 'Generated Certificates' : 'Certificate Preview'}
+          </p>
+          <p className="text-sm text-red-500 mt-1">
+            (Read-only view. Download or share the official certificate below.)
+          </p>
+        </header>
+
+        {/* Scrollable Certificate List */}
+        <div className="space-y-16">
+          {certificatesToRender.map((cert, index) => (
+            <div key={index} className="bg-white p-6 rounded-xl shadow-2xl border border-gray-300">
+              <h2 className="text-2xl font-semibold text-center mb-6 text-indigo-700">
+                {certificatesToRender.length > 1 ? `#${index + 1}: ${cert.name}` : cert.name}
+              </h2>
+
+              {/* Konva Canvas Render Area (Read-only) */}
+              <div 
+                id={`certificate-view-${index}`} 
+                className="mx-auto shadow-xl border-4 border-gray-400 bg-white"
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top center',
+                  width: data!.width,
+                  height: data!.height,
+                  marginBottom: `${data!.height * scale * 0.2}px`
+                }}
+              >
+                <KonvaCanvas
+                  width={data!.width}
+                  height={data!.height}
+                  elements={cert.elements}
+                  isEditable={false}
+                  onElementSelect={() => {}}
+                />
+              </div>
+
+              {/* Download and Share Actions */}
+              <div className="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-center gap-4">
+                <button
+                  onClick={() => handleDownload(index, cert.name, 'pdf')}
+                  disabled={downloading !== null}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-800 rounded-lg text-white font-medium transition duration-150 shadow-md"
+                >
+                  <Download size={20} />
+                  {downloading === cert.name ? 'Preparing PDF...' : 'Download as PDF'}
+                </button>
+                
+                <button
+                  onClick={() => handleDownload(index, cert.name, 'image')}
+                  disabled={downloading !== null}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 rounded-lg text-white font-medium transition duration-150 shadow-md"
+                >
+                  <Download size={20} />
+                  {downloading === cert.name ? 'Preparing Image...' : 'Download as Image (PNG)'}
+                </button>
+
+                <button
+                  onClick={() => handleShareFacebook(index, cert.name)}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition duration-150 shadow-md"
+                >
+                  <Facebook size={20} /> Share to Facebook
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+};
 
 export default CertificateViewer;

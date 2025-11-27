@@ -18,6 +18,8 @@ import ResetPassword from "./pages/public/ResetPassword";
 
 //import CertificateViewer from './pages/public/CertificateViewer'; // Import the new page
 
+import CertificateViewer from "./pages/public/CertificateViewer";
+
 import PublicLayout from "./layouts/PublicLayout";
 import PrivateLayout from "./layouts/PrivateLayout";
 import AuthModal from "./pages/public/AuthModal";
@@ -55,6 +57,10 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ⭐️ NEW PUBLIC VIEWING ROUTE ⭐️ * /* Using /c/ for a short URL structure, e.g., yoursite.com/c/123xyz */}
        {/* <Route path="/c/:id" element={<CertificateViewer />} />*/}
+
+
+  <Route path="/view/certificate/:certId" element={<CertificateViewer />} /> 
+
 
           {/* 🔒 Private Routes */}
           <Route path="/app" element={<PrivateLayout />}>

@@ -1,5 +1,3 @@
-// src/components/EditorTopBar.tsx
-
 import React, { useState, useEffect } from "react";
 import {
   Minus,
@@ -15,13 +13,13 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  RotateCcw, // Added Undo Icon
+  RotateCcw,
+  Share,
 } from "lucide-react";
 
 export type ExportFormat = "jpg" | "png" | "pdf" | "pptx";
 
 interface EditorTopBarProps {
-  // Changed: Now accepts activeStyles object instead of individual props
   activeStyles?: {
     fontSize?: number;
     fontFamily?: string;
@@ -37,13 +35,13 @@ interface EditorTopBarProps {
   onDeleteElement?: () => void;
   onSave?: () => void;
   onDownload?: (format: ExportFormat) => void;
-  onUndo?: () => void; // Added Undo Prop
+  onUndo?: () => void;
   isSaving?: boolean;
-  // Kept your existing props
-  activeToolTab?: "select" | "pattern"; 
+  activeToolTab?: "select" | "pattern";
   setActiveToolTab?: (tab: "select" | "pattern") => void;
   onRevert?: () => void;
   isBulkMode?: boolean;
+  onShare?: () => void;
 }
 
 const EditorTopBar: React.FC<EditorTopBarProps> = ({
@@ -55,8 +53,8 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
   onDownload,
   onUndo,
   isSaving = false,
+  onShare,
 }) => {
-  // Local state synced with activeStyles
   const [fontSize, setFontSize] = useState(16.3);
   const [selectedFont, setSelectedFont] = useState("Canva Sans");
   const [isBold, setIsBold] = useState(false);
@@ -66,11 +64,9 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
   const [textAlign, setTextAlign] = useState("left");
   const [textCase, setTextCase] = useState("normal");
 
-  // Dropdown states
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [showTransformMenu, setShowTransformMenu] = useState(false);
 
-  // Sync state when activeStyles changes
   useEffect(() => {
     if (activeStyles.fontSize) setFontSize(activeStyles.fontSize);
     if (activeStyles.fontFamily) setSelectedFont(activeStyles.fontFamily);
@@ -82,7 +78,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
     if (activeStyles.textTransform) setTextCase(activeStyles.textTransform as string);
   }, [activeStyles]);
 
-  // Close menus on interaction
   useEffect(() => {
     setShowTransformMenu(false);
     setIsDownloadOpen(false);
@@ -119,16 +114,13 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
   return (
     <div className="flex-none w-full h-20 flex flex-wrap justify-between items-center gap-4 px-5 py-3 bg-slate-900 border-b border-slate-700 z-30">
-      
-      {/* LEFT: Page Indicator */}
+
       <div className="px-3 py-1 border-2 border-cyan-400 rounded-full text-white text-sm font-medium">
         Page 1
       </div>
 
-      {/* CENTER: Formatting Tools */}
       <div className="flex items-center gap-2 bg-white rounded-2xl shadow-xl px-4 py-2.5 border-2 border-slate-200">
-        
-        {/* Font Family */}
+
         <select
           value={selectedFont}
           onChange={(e) => {
@@ -147,7 +139,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* Font Size */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => {
@@ -160,6 +151,7 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           >
             <Minus size={16} className="text-slate-800" />
           </button>
+
           <input
             type="number"
             value={fontSize}
@@ -171,6 +163,7 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
             disabled={!selectedElement}
             className="w-14 px-2 py-1 text-center border border-slate-300 rounded text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
+
           <button
             onClick={() => {
               const newSize = fontSize + 1;
@@ -186,14 +179,15 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* Color Picker */}
         <div className="relative group">
-          <div 
-            className={`w-9 h-9 rounded-lg border-2 border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative ${!selectedElement ? 'opacity-50' : ''}`}
+          <div
+            className={`w-9 h-9 rounded-lg border-2 border-slate-300 flex items-center justify-center cursor-pointer overflow-hidden relative ${
+              !selectedElement ? "opacity-50" : ""
+            }`}
             style={{ backgroundColor: textColor }}
           >
-            <input 
-              type="color" 
+            <input
+              type="color"
               value={textColor}
               onChange={(e) => {
                 setTextColor(e.target.value);
@@ -203,14 +197,13 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
             />
             <div className="pointer-events-none mix-blend-difference">
-               <Palette size={16} className="text-white filter invert" /> 
+              <Palette size={16} className="text-white filter invert" />
             </div>
           </div>
         </div>
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* Bold */}
         <button
           onClick={() => {
             const next = !isBold;
@@ -225,7 +218,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           <Bold size={18} />
         </button>
 
-        {/* Italic */}
         <button
           onClick={() => {
             const next = !isItalic;
@@ -240,7 +232,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           <Italic size={18} />
         </button>
 
-        {/* Underline */}
         <button
           onClick={() => {
             const next = !isUnderline;
@@ -257,7 +248,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* ADDED: Text Transform Dropdown */}
         <div className="relative">
           <button
             onClick={() => {
@@ -265,7 +255,9 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
                 setShowTransformMenu(!showTransformMenu);
               }
             }}
-            className={`p-2 rounded-lg transition ${showTransformMenu ? "bg-slate-200" : "hover:bg-slate-100"} disabled:opacity-50`}
+            className={`p-2 rounded-lg transition ${
+              showTransformMenu ? "bg-slate-200" : "hover:bg-slate-100"
+            } disabled:opacity-50`}
             disabled={!selectedElement}
           >
             <span className="text-slate-800 font-semibold text-sm">aA</span>
@@ -281,7 +273,9 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
                     update({ textTransform: value });
                     setShowTransformMenu(false);
                   }}
-                  className={`w-full text-left px-4 py-3 hover:bg-slate-100 text-sm text-slate-800 border-b border-slate-100 last:border-0 ${textCase === value ? "bg-slate-100 font-bold text-blue-600" : ""}`}
+                  className={`w-full text-left px-4 py-3 hover:bg-slate-100 text-sm text-slate-800 border-b border-slate-100 last:border-0 ${
+                    textCase === value ? "bg-slate-100 font-bold text-blue-600" : ""
+                  }`}
                 >
                   {value === "normal" && "Normal"}
                   {value === "upper" && "UPPERCASE"}
@@ -295,7 +289,6 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         <div className="w-px h-8 bg-slate-300"></div>
 
-        {/* ADDED: Alignment Buttons */}
         <div className="flex items-center gap-0.5">
           {[
             { type: "left", icon: <AlignLeft size={18} className="text-slate-800" /> },
@@ -308,20 +301,19 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
                 setTextAlign(btn.type);
                 update({ textAlign: btn.type });
               }}
-              className={`p-2 rounded-lg transition ${textAlign === btn.type ? "bg-slate-200" : "hover:bg-slate-100"} disabled:opacity-50`}
+              className={`p-2 rounded-lg transition ${
+                textAlign === btn.type ? "bg-slate-200" : "hover:bg-slate-100"
+              } disabled:opacity-50`}
               disabled={!selectedElement}
             >
               {btn.icon}
             </button>
           ))}
         </div>
-
       </div>
 
-      {/* RIGHT: Actions */}
       <div className="flex flex-wrap items-center gap-2">
-        
-        {/* ADDED: Undo Button */}
+
         {onUndo && (
           <button
             onClick={onUndo}
@@ -332,8 +324,18 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           </button>
         )}
 
-        {/* Save Button */}
-        <button 
+        {onShare && (
+          <button
+            onClick={onShare}
+            className="flex items-center gap-2 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg transition text-white font-medium text-sm"
+            title="Share Certificate"
+          >
+            <Share size={18} />
+            Share
+          </button>
+        )}
+
+        <button
           onClick={onSave}
           disabled={isSaving}
           className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 rounded-lg transition text-white font-medium text-sm"
@@ -342,15 +344,14 @@ const EditorTopBar: React.FC<EditorTopBarProps> = ({
           {isSaving ? "Saving..." : "Save"}
         </button>
 
-        {/* Download Button Group */}
         <div className="relative">
-          <button 
+          <button
             onClick={() => setIsDownloadOpen(!isDownloadOpen)}
             className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition text-white font-medium text-sm"
           >
             <Download size={18} />
             Export
-            <ChevronDown size={16} className={`transition-transform ${isDownloadOpen ? 'rotate-180' : 'rotate-0'}`}/>
+            <ChevronDown size={16} className={`transition-transform ${isDownloadOpen ? "rotate-180" : "rotate-0"}`} />
           </button>
 
           {isDownloadOpen && (

@@ -1,5 +1,3 @@
-// src/pages/GeneratedTemplates.tsx
-
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
@@ -189,7 +187,7 @@ export default function GeneratedTemplates() {
 
 
   const allFilteredSelected = filteredCertificates.length > 0 && 
-                             filteredCertificates.every(c => selectedCertificates.includes(c.id));
+                              filteredCertificates.every(c => selectedCertificates.includes(c.id));
   
   const isAnySelected = selectedCertificates.length > 0;
   
@@ -323,7 +321,7 @@ export default function GeneratedTemplates() {
 
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-                          <span className="opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                         <span className="opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
                             Click to Edit
                           </span>
                         </div>
@@ -350,8 +348,8 @@ export default function GeneratedTemplates() {
                         
                         {/* Actions Footer (Teammate's button UI) */}
                         <div className="mt-auto flex items-center gap-2 pt-3 border-t border-slate-800/50">
-                          {/* Edit Button */}
-                          <button
+                         {/* Edit Button */}
+                         <button
                             onClick={() => handleEdit(c)}
                             disabled={loading}
                             className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 rounded-md transition-colors shadow-lg shadow-blue-900/20"

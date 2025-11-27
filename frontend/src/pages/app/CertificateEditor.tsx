@@ -1,5 +1,3 @@
-// src/pages/app/CertificateEditor.tsx
-
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
@@ -286,7 +284,7 @@ const CertificateEditor: React.FC = () => {
   };
 
 
-  // --- SAVING LOGIC ---
+  // --- SAVING LOGIC (NO CHANGE) ---
   const handleSaveTemplate = async () => {
     if (!currentCertificate) return;
     try {
@@ -349,7 +347,7 @@ const CertificateEditor: React.FC = () => {
       }
   };
 
-  // --- DOWNLOAD LOGIC ---
+  // --- DOWNLOAD LOGIC (NO CHANGE) ---
   const handleDownload = async (format: ExportFormat) => {
     if (!currentCertificate) return;
     if (bulkGeneratedCertificates.length > 0) {
@@ -401,7 +399,7 @@ const CertificateEditor: React.FC = () => {
     }
   };
 
-  // --- BULK AUTO UPLOAD LOGIC (UPDATED: STRICT Z-INDEX 12) ---
+  // --- BULK AUTO UPLOAD LOGIC (NO CHANGE) ---
   const handleAutoBulkUpload = async (file: File) => {
     if (!currentCertificate || isBulkProcessing) {
       alert("Please ensure a certificate template is loaded or wait for current process to finish.");
@@ -478,7 +476,7 @@ const CertificateEditor: React.FC = () => {
   };
 
 
-  // --- CLICK TO PLACE TEXT HANDLER ---
+  // --- CLICK TO PLACE TEXT HANDLER (NO CHANGE) ---
   const handlePlaceTextAt = (pos: { x: number; y: number }) => {
     if (!currentCertificate) {
       setIsAddingText(false);
@@ -528,7 +526,7 @@ const CertificateEditor: React.FC = () => {
   };
 
 
-  // --- DETERMINING ACTIVE ELEMENT ---
+  // --- DETERMINING ACTIVE ELEMENT (NO CHANGE) ---
   const getActiveElement = (): CertificateElement | undefined => {
       if (!selectedElement) return undefined;
       if (selectedCertificateIndex !== null && bulkGeneratedCertificates.length > 0) {
@@ -539,6 +537,24 @@ const CertificateEditor: React.FC = () => {
 
   const activeElementObj = getActiveElement();
   const isBulkMode = bulkGeneratedCertificates.length > 0;
+  
+  // --- 💡 NEW: SHARE LOGIC ---
+  const handleShare = () => {
+    if (!currentCertificate) return;
+
+    // Dapat naka-save muna bago i-share
+    if (!currentCertificate.id || isSaving || isBulkProcessing) {
+      alert("Please save the certificate first.");
+      return;
+    }
+
+    // Mocking the public link creation
+    const certificateId = currentCertificate.id;
+    alert(`Simulating creation of public link and redirecting to Viewer Page: /view/certificate/${certificateId}`);
+    
+    // Navigate to the mock viewing page (needs React Router setup for this path)
+    navigate(`/view/certificate/${certificateId}`);
+  };
 
   // Render List
   const certificatesToRender = isBulkMode 
@@ -561,7 +577,8 @@ const CertificateEditor: React.FC = () => {
         onDownload={handleDownload}
         onRevert={handleRevertToTemplate} 
         isSaving={isSaving || isBulkProcessing}
-        onUndo={handleUndo} 
+        onUndo={handleUndo}
+        onShare={handleShare} // 💡 NEW: Passed the Share Handler
       />
       
       {isBulkProcessing && (
