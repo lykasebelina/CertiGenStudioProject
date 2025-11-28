@@ -9,7 +9,10 @@ import HomeDashboard from "./pages/app/HomeDashboard";
 import AIGenerate from "./pages/app/AIGenerate";
 import CertificateEditor from "./pages/app/CertificateEditor";
 //import TemplateLibrary from "./pages/app/TemplateLibrary";
+
 import CustomTemplateHub from "./pages/app/CustomTemplateHub";
+import CustomTemplateEditor from "./pages/app/CustomTemplateEditor"; // NEW FILE
+
 import BrandKit from "./pages/app/BrandKit";
 import GeneratedTemplates from "./pages/app/GeneratedTemplates";
 import MyCertificates from "./pages/app/MyCertificates";
@@ -71,6 +74,9 @@ function App() {
               <Route path="certificate-editor" element={<CertificateEditor />} />
 
               <Route path="custom-template" element={<CustomTemplateHub />} />
+              <Route path="custom-template/editor" element={<CustomTemplateEditor />} />
+
+
               <Route path="brand-kit" element={<BrandKit />} />
               <Route path="generated-templates" element={<GeneratedTemplates />} />
               <Route path="my-certificates" element={<MyCertificates />} />

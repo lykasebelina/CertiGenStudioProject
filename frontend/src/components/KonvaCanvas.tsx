@@ -1,5 +1,3 @@
-// src/components/KonvaCanvas.tsx
-
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer, Line } from "react-konva";
 import Konva from "konva";
@@ -79,6 +77,9 @@ export default function KonvaCanvas({
           const img = new window.Image();
           const src = element.imageUrl!;
 
+          // 💡 CRITICAL FIX: Set crossOrigin for CORS compatibility BEFORE setting src
+          img.crossOrigin = 'anonymous'; // Allows Konva to load images securely
+          
           await new Promise<void>((resolve) => {
             img.onload = () => resolve();
             img.onerror = () => resolve(); 
@@ -333,6 +334,7 @@ export default function KonvaCanvas({
                     onDragMove={handleDragMove}
                     onDragEnd={(e) => handleDragEnd(e, el.id)}
                     onTransformEnd={(e) => handleTransformEnd(e, el.id)}
+                    crossOrigin="anonymous" // 💡 FIX 1: Added crossOrigin
                     ref={(node) => { 
                       if (node) itemsRef.current[el.id] = node; 
                     }}
@@ -401,6 +403,7 @@ export default function KonvaCanvas({
                       if (onElementFinalUpdate) onElementFinalUpdate(el.id, updates);
                       else onElementUpdate?.(el.id, updates);
                     }}
+                    crossOrigin="anonymous" // 💡 FIX 2: Added crossOrigin
                     ref={(node) => { 
                       if (node) itemsRef.current[el.id] = node; 
                     }}

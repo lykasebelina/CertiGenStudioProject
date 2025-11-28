@@ -1,11 +1,13 @@
+//GeneratedTemplate.tsx
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import CertificateTemplate from "../../components/CertificateTemplate";
 import { CertificateElement, GeneratedCertificate } from "../../types/certificate";
 import { useCertificate } from "../../context/CertificateContext";
+import ShareLinkButton from "../../components/ShareLinkButton"; 
 
-// --- Icons (Copied from Teammate's code for the buttons) ---
+// --- Icons  ---
 const IconEdit = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 );
@@ -357,6 +359,13 @@ export default function GeneratedTemplates() {
                             <IconEdit /> Edit
                           </button>
                           
+                          {/* ⭐️ NEW: Share Button Added Here (Integrated correctly with fixed ShareLinkButton) */}
+                          <ShareLinkButton 
+                                certificateId={c.id} 
+                                certificateTitle={c.title} 
+                                onShareClick={(e) => e.stopPropagation()}
+                          />
+
                           {/* Delete Button */}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteCertificate(c.id, c.title); }}
