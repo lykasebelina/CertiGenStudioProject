@@ -2,13 +2,11 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from 'jspdf';
-import { Download, Facebook } from "lucide-react"; 
+import { Download, Facebook, Share2 } from "lucide-react";
 import KonvaCanvas from "../../components/KonvaCanvas";
-import { supabase } from "../../lib/supabaseClient"; 
-import { CertificateElement } from "../../types/certificate"; // Assuming this type is correct
+import { supabase } from "../../lib/supabaseClient";
+import { CertificateElement } from "../../types/certificate";
 
-
-// Muling I-define ang Types
 interface GeneratedCertificateInstance {
   name: string;
   elements: CertificateElement[];
@@ -16,10 +14,10 @@ interface GeneratedCertificateInstance {
 
 interface PublicCertificateData {
   id: string;
-  name: string; // Ito ay 'title' sa Supabase
+  name: string;
   width: number;
   height: number;
-  template_elements: CertificateElement[]; // Ito ay 'elements' sa Supabase
+  template_elements: CertificateElement[];
   generated_instances: GeneratedCertificateInstance[] | null;
 }
 
@@ -32,14 +30,13 @@ const SIZE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "letter-landscape": { width: 1056, height: 816 },
 };
 
-
-// ⭐️ CRITICAL FIX: REAL SUPABASE DATA FETCH FUNCTION ⭐️
-const fetchPublicCertificateData = async (certId: string): Promise<PublicCertificateData | null> => {
+const fetchPublicCertificateData = async (
+  certId: string
+): Promise<PublicCertificateData | null> => {
   try {
-    // Selects only the available columns in your table
     const { data, error } = await supabase
       .from("certificates")
-      .select("id, title, size, elements, generated_instances") 
+      .select("id, title, size, elements, generated_instances")
       .eq("id", certId)
       .single();
 
@@ -50,8 +47,9 @@ const fetchPublicCertificateData = async (certId: string): Promise<PublicCertifi
 
     if (!data) return null;
 
-    // Determines dimensions based on the 'size' column
-    const dims = SIZE_DIMENSIONS[data.size as string] || SIZE_DIMENSIONS["a4-landscape"];
+    const dims =
+      SIZE_DIMENSIONS[data.size as string] ||
+      SIZE_DIMENSIONS["a4-landscape"];
 
     return {
       id: data.id,
@@ -59,27 +57,25 @@ const fetchPublicCertificateData = async (certId: string): Promise<PublicCertifi
       width: dims.width,
       height: dims.height,
       template_elements: data.elements,
-      // Ensures the data type matches the required interface
-      generated_instances: data.generated_instances as GeneratedCertificateInstance[] | null,
+      generated_instances:
+        data.generated_instances as GeneratedCertificateInstance[] | null,
     };
-
   } catch (e) {
     console.error("Error fetching certificate data:", e);
     return null;
   }
 };
 
-
 const CertificateViewer: React.FC = () => {
   const { certId } = useParams<{ certId: string }>();
   const [data, setData] = useState<PublicCertificateData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const [downloading, setDownloading] = useState<number | null>(null);
 
   useEffect(() => {
     if (certId) {
       setLoading(true);
-      // ⭐️ Ginamit na ang totoong Supabase fetch function ⭐️
       fetchPublicCertificateData(certId)
         .then(setData)
         .catch(console.error)
@@ -89,94 +85,176 @@ const CertificateViewer: React.FC = () => {
 
   const certificatesToRender: GeneratedCertificateInstance[] = useMemo(() => {
     if (!data) return [];
-    
-    // CHECK 1: Render Bulk Certificates if available and valid
-    if (data.generated_instances && Array.isArray(data.generated_instances) && data.generated_instances.length > 0) {
+
+    if (
+      data.generated_instances &&
+      Array.isArray(data.generated_instances) &&
+      data.generated_instances.length > 0
+    ) {
       return data.generated_instances;
     }
-    
-    // CHECK 2: Fallback to the single template (elements column)
-    if (data.template_elements && Array.isArray(data.template_elements) && data.template_elements.length > 0) {
+
+    if (
+      data.template_elements &&
+      Array.isArray(data.template_elements) &&
+      data.template_elements.length > 0
+    ) {
       return [{ name: data.name, elements: data.template_elements }];
     }
-    
+
     return [];
   }, [data]);
 
+  // ⭐ NEW FUNCTION: UPLOAD IMAGE TO SUPABASE + RETURN PUBLIC URL
+  const uploadCertificateImage = async (canvas: HTMLCanvasElement, fileName: string) => {
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/png")
+    );
 
-  // --- DOWNLOAD LOGIC ---
-  const handleDownload = useCallback(async (index: number, name: string, format: 'image' | 'pdf') => {
-    if (!data) return;
-    
-    const element = document.getElementById(`certificate-view-${index}`);
-    if (!element) {
-      alert("Could not find certificate element to capture.");
-      return;
+    if (!blob) {
+      alert("Failed to convert image.");
+      return null;
     }
 
-    setDownloading(name);
+    const filePath = `shared/${fileName}-${Date.now()}.png`;
 
-    try {
-      // Use html2canvas to capture the rendered Konva Canvas
-      const canvas = await html2canvas(element, { 
-          useCORS: true, 
-          scale: 2, 
-          backgroundColor: "#ffffff" // Default background
+    const { error } = await supabase.storage
+      .from("certificates")
+      .upload(filePath, blob, {
+        cacheControl: "3600",
+        upsert: false,
       });
 
-      const fileName = `${data.name} - ${name}`;
+    if (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed.");
+      return null;
+    }
 
-      if (format === 'pdf') {
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
-        const imgWidth = data.width;
-        const imgHeight = data.height;
-        const orientation = imgWidth > imgHeight ? 'l' : 'p';
-        const pdf = new jsPDF(orientation, 'pt', 'a4');
-        
-        const a4Width = orientation === 'l' ? 841.89 : 595.28;
-        const a4Height = orientation === 'l' ? 595.28 : 841.89;
-        const ratio = Math.min(a4Width / imgWidth, a4Height / imgHeight);
-        const pdfImgWidth = imgWidth * ratio;
-        const pdfImgHeight = imgHeight * ratio;
-        const xOffset = (a4Width - pdfImgWidth) / 2;
-        const yOffset = (a4Height - pdfImgHeight) / 2;
+    const { data: publicURL } = supabase.storage
+      .from("certificates")
+      .getPublicUrl(filePath);
 
-        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, pdfImgWidth, pdfImgHeight);
-        pdf.save(`${fileName}.pdf`);
-      } else {
-        const link = document.createElement('a');
-        link.download = `${fileName}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      }
-      setDownloading(null);
-    } catch (err) {
-      console.error("Download failed:", err);
-      alert(`Failed to download ${name}.`);
-      setDownloading(null);
-    } 
-  }, [data]);
-
-
-  // --- FACEBOOK SHARE LOGIC ---
-  const handleShareFacebook = (index: number, name: string) => {
-    const url = window.location.href; 
-    const shareTitle = `A Certificate for ${name} from ${data?.name}!`;
-    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareTitle)}`;
-    window.open(shareUrl, '_blank', 'width=600,height=400');
+    return publicURL.publicUrl;
   };
 
+  // ⭐ NEW SHARE FUNCTION: SHARE IMAGE TO FACEBOOK
+  const handleFacebookPost = async (index: number, name: string) => {
+    const element = document.getElementById(`certificate-view-${index}`);
+    if (!element) return alert("Certificate not found!");
+
+    const canvas = await html2canvas(element, { scale: 2 });
+
+    const fileName = `${data?.name}-${name}`;
+    const imageUrl = await uploadCertificateImage(canvas, fileName);
+
+    if (!imageUrl) return;
+
+    const fbShare = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+      imageUrl
+    )}`;
+
+    window.open(fbShare, "_blank", "width=600,height=400");
+  };
+
+  // ⭐ NEW SHARE FUNCTION: SHARE IMAGE TO LINKEDIN
+  const handleLinkedInPost = async (index: number, name: string) => {
+    const element = document.getElementById(`certificate-view-${index}`);
+    if (!element) return alert("Certificate not found!");
+
+    const canvas = await html2canvas(element, { scale: 2 });
+
+    const fileName = `${data?.name}-${name}`;
+    const imageUrl = await uploadCertificateImage(canvas, fileName);
+
+    if (!imageUrl) return;
+
+    const title = `${name} - Achievement Certificate`;
+    const summary = `I earned a certificate in ${data?.name}! Proud to share my progress.`;
+
+    const linkedInUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(
+      imageUrl
+    )}&title=${encodeURIComponent(title)}&summary=${encodeURIComponent(
+      summary
+    )}`;
+
+    window.open(linkedInUrl, "_blank", "width=600,height=600");
+  };
+
+  // ------------------ (KEEPING YOUR FULL CODE) -----------------------------
+
+  const handleDownload = useCallback(
+    async (index: number, name: string, format: "image" | "pdf") => {
+      if (!data) return;
+
+      const element = document.getElementById(`certificate-view-${index}`);
+      if (!element) {
+        alert("Could not find certificate element to capture.");
+        return;
+      }
+
+      setDownloading(index);
+
+      try {
+        const canvas = await html2canvas(element, {
+          useCORS: true,
+          scale: 2,
+          backgroundColor: "#ffffff",
+        });
+
+        const fileName = `${data.name} - ${name}`;
+
+        if (format === "pdf") {
+          const imgData = canvas.toDataURL("image/jpeg", 1.0);
+          const imgWidth = data.width;
+          const imgHeight = data.height;
+          const orientation = imgWidth > imgHeight ? "l" : "p";
+          const pdf = new jsPDF(orientation, "pt", "a4");
+
+          const a4Width = orientation === "l" ? 841.89 : 595.28;
+          const a4Height = orientation === "l" ? 595.28 : 841.89;
+          const ratio = Math.min(a4Width / imgWidth, a4Height / imgHeight);
+          const pdfImgWidth = imgWidth * ratio;
+          const pdfImgHeight = imgHeight * ratio;
+          const xOffset = (a4Width - pdfImgWidth) / 2;
+          const yOffset = (a4Height - pdfImgHeight) / 2;
+
+          pdf.addImage(imgData, "JPEG", xOffset, yOffset, pdfImgWidth, pdfImgHeight);
+          pdf.save(`${fileName}.pdf`);
+        } else {
+          const link = document.createElement("a");
+          link.download = `${fileName}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        }
+
+        setDownloading(null);
+      } catch (err) {
+        console.error("Download failed:", err);
+        alert(`Failed to download ${name}.`);
+        setDownloading(null);
+      }
+    },
+    [data]
+  );
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg font-medium">Loading Certificate(s)...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg font-medium">
+        Loading Certificate(s)...
+      </div>
+    );
   }
 
   if (!data || certificatesToRender.length === 0) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg text-red-600 font-medium">404 | Certificate not found or no instances available.</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 text-lg text-red-600 font-medium">
+        404 | Certificate not found or no instances available.
+      </div>
+    );
   }
-  
-  // Scaling factor for display preview
-  const scale = data.width > 1000 ? 0.75 : 1.0; 
+
+  const scale = data.width > 1000 ? 0.75 : 1.0;
 
   return (
     <div className="min-h-screen bg-slate-100 py-10">
@@ -184,31 +262,36 @@ const CertificateViewer: React.FC = () => {
         <header className="text-center mb-10">
           <h1 className="text-4xl font-extrabold text-gray-900">{data.name}</h1>
           <p className="mt-2 text-xl text-gray-600">
-            {certificatesToRender.length > 1 ? 'Generated Certificates' : 'Certificate Preview'}
+            {certificatesToRender.length > 1
+              ? "Generated Certificates"
+              : "Certificate Preview"}
           </p>
           <p className="text-sm text-red-500 mt-1">
             (Read-only view. Download or share the official certificate below.)
           </p>
         </header>
 
-        {/* Scrollable Certificate List */}
         <div className="space-y-16">
           {certificatesToRender.map((cert, index) => (
-            <div key={index} className="bg-white p-6 rounded-xl shadow-2xl border border-gray-300">
+            <div
+              key={index}
+              className="bg-white p-6 rounded-xl shadow-2xl border border-gray-300"
+            >
               <h2 className="text-2xl font-semibold text-center mb-6 text-indigo-700">
-                {certificatesToRender.length > 1 ? `#${index + 1}: ${cert.name}` : cert.name}
+                {certificatesToRender.length > 1
+                  ? `#${index + 1}: ${cert.name}`
+                  : cert.name}
               </h2>
 
-              {/* Konva Canvas Render Area (Read-only) */}
-              <div 
-                id={`certificate-view-${index}`} 
+              <div
+                id={`certificate-view-${index}`}
                 className="mx-auto shadow-xl border-4 border-gray-400 bg-white"
                 style={{
                   transform: `scale(${scale})`,
-                  transformOrigin: 'top center',
+                  transformOrigin: "top center",
                   width: data!.width,
                   height: data!.height,
-                  marginBottom: `${data!.height * scale * 0.2}px`
+                  marginBottom: `${data!.height * scale * 0.2}px`,
                 }}
               >
                 <KonvaCanvas
@@ -220,37 +303,47 @@ const CertificateViewer: React.FC = () => {
                 />
               </div>
 
-              {/* Download and Share Actions */}
               <div className="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-center gap-4">
                 <button
-                  onClick={() => handleDownload(index, cert.name, 'pdf')}
+                  onClick={() => handleDownload(index, cert.name, "pdf")}
                   disabled={downloading !== null}
                   className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-800 rounded-lg text-white font-medium transition duration-150 shadow-md"
                 >
                   <Download size={20} />
-                  {downloading === cert.name ? 'Preparing PDF...' : 'Download as PDF'}
+                  {downloading === index
+                    ? "Preparing PDF..."
+                    : "Download as PDF"}
                 </button>
-                
+
                 <button
-                  onClick={() => handleDownload(index, cert.name, 'image')}
+                  onClick={() => handleDownload(index, cert.name, "image")}
                   disabled={downloading !== null}
                   className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 rounded-lg text-white font-medium transition duration-150 shadow-md"
                 >
                   <Download size={20} />
-                  {downloading === cert.name ? 'Preparing Image...' : 'Download as Image (PNG)'}
+                  {downloading === index
+                    ? "Preparing Image..."
+                    : "Download as Image (PNG)"}
+                </button>
+
+                {/* ⭐ NEW SHARE BUTTONS (IMAGE POST) */}
+                <button
+                  onClick={() => handleFacebookPost(index, cert.name)}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition duration-150 shadow-md"
+                >
+                  <Facebook size={20} /> Post Image to Facebook
                 </button>
 
                 <button
-                  onClick={() => handleShareFacebook(index, cert.name)}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition duration-150 shadow-md"
+                  onClick={() => handleLinkedInPost(index, cert.name)}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-800 hover:bg-blue-900 rounded-lg text-white font-medium transition duration-150 shadow-md"
                 >
-                  <Facebook size={20} /> Share to Facebook
+                  <Share2 size={20} /> Post Image to LinkedIn
                 </button>
               </div>
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );
