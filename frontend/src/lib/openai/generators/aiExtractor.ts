@@ -1,14 +1,32 @@
-// src/lib/openai/generators/aiExtractor.ts (FIXED)
+// src/lib/openai/generators/aiExtractor.ts (FINAL FIXED)
+
+/**
+ * Defines the structure of the certificate details expected to be extracted by the AI.
+ */
+export interface AIDetails {
+  institution: string;
+  department: string;
+  location: string;
+  openingPhrase: string;
+  certificateTitle: string;
+  preRecipientPhrase: string;
+  recipientName: string;
+  purposePhrase: string;
+  role: string;
+  eventDetails: string;
+  datePlace: string;
+  signatures: { name: string; title: string }[];
+}
 
 export async function extractCertificateDetailsAI(prompt: string): Promise<AIDetails> {
-  
-  // 1. Get the base URL from the environment variable (VITE_API_BASE_URL).
-  // 2. If the variable is not set (i.e., local development), default to the relative path '/'.
-  //    NOTE: Using a relative path '/' for the base URL is the safest method for Vercel,
-  //    as it directs the request back to the Vercel app's own domain.
+  // Get the base URL from the environment variable (VITE_API_BASE_URL).
+  // If the variable is not set, default to an empty string. 
+  // This allows the use of a relative path, which is best for Vercel deployment.
   const baseURL = import.meta.env.VITE_API_BASE_URL || ''; 
   
-  const res = await fetch(${baseURL}/extract, { // <--- Changed here
+  // FIX 1 (URL): Changed hardcoded localhost to the Vercel-friendly baseURL variable.
+  // FIX 2 (SYNTAX): Used backticks (`) for template literals to embed the variable.
+  const res = await fetch(`${baseURL}/extract`, { 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt })
