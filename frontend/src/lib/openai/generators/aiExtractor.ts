@@ -1,3 +1,4 @@
+// src/lib/openai/generators/aiExtractor.ts
 export interface AIDetails {
   institution: string;
   department: string;
@@ -14,12 +15,12 @@ export interface AIDetails {
 }
 
 export async function extractCertificateDetailsAI(prompt: string): Promise<AIDetails> {
-  // CRITICAL FIX: Ensures POST request to the Vercel API endpoint
-  const res = await fetch("/api/extract", { 
+  const res = await fetch("http://localhost:4000/extract", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt })
   });
+
   if (!res.ok) throw new Error("Failed to extract certificate details");
   return res.json();
 }
