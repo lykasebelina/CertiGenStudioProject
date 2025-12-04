@@ -18,7 +18,7 @@ export function extractCornerFrameColors(prompt: string): string[] {
     if (lower.includes(key)) return paletteMap[key];
   }
 
-  return ["#e9d5ff", "#fecdd3"]; // neutral fallback
+  return ["#fecdd3", "#fecdd3"]; // neutral fallback
 }
 
 /** Detect whether to use DALL·E, + intensity */

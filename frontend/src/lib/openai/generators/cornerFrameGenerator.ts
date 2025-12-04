@@ -1,4 +1,4 @@
-// src/utils/cornerFrameUtils.ts
+// src/utils/cornerFrameGenerator.ts
 
 import { CertificateElement } from "../../../types/certificate";
 import { SIZE_MAP } from "../utils/sizeUtils";
@@ -42,32 +42,30 @@ export async function generateCornerFrame(
     br: 225,  // bottom-right
   };
 
-  // Optionally generate a DALL·E image for the corner frame
+  // Always attempt to generate a DALL·E image for the corner frame (PRIORITIZED)
   let finalImageUrl: string | null = null;
   
-  if (style.useDallePattern) {
-    try {
-      const dallePrompt = formatCornerFramePrompt(userPrompt, colors, style);
-      const imageSize = determineImageSize(cornerSize, cornerSize);
+  try {
+    const dallePrompt = formatCornerFramePrompt(userPrompt, colors, style);
+    const imageSize = determineImageSize(cornerSize, cornerSize);
+    
+    // 🟢 STEP A: Get Base64
+    const base64Data = await generateImageWithDALLE(dallePrompt, imageSize);
+
+    if (base64Data) {
+      // 🟢 STEP B: Upload to Supabase
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id || "guest";
+
+      const permanentUrl = await uploadDalleImageToSupabase(base64Data, userId);
       
-      // 🟢 STEP A: Get Base64
-      const base64Data = await generateImageWithDALLE(dallePrompt, imageSize);
-
-      if (base64Data) {
-        // 🟢 STEP B: Upload to Supabase
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData.user?.id || "guest";
-
-        const permanentUrl = await uploadDalleImageToSupabase(base64Data, userId);
-        
-        if (permanentUrl) {
-            finalImageUrl = permanentUrl; // ✅ Success: Use the short URL
-        }
+      if (permanentUrl) {
+          finalImageUrl = permanentUrl; // ✅ Success: Use the short URL
       }
-    } catch (err) {
-      console.error("DALL·E Corner Frame error, fallback to CSS:", err);
-      finalImageUrl = null;
     }
+  } catch (err) {
+    console.error("DALL·E Corner Frame error, fallback to CSS:", err);
+    finalImageUrl = null; // Fallback to CSS color if DALL-E fails
   }
 
   // Create the four corner frame elements
